@@ -19,36 +19,46 @@ st.divider()
 # DUMMY DATA SETUP (FOR UI LAYOUT PREVIEW)
 # ==============================================================================
 @st.cache_data
-def generate_dummy_data():
-    dates = pd.date_range(start="2023-01-01", end="2026-01-01", freq="B")
-    n = len(dates)
-    
-    # Generate random walk for prices
-    np.random.seed(42)
-    actual_returns = np.random.normal(0.0005, 0.015, n)
-    actual_prices = 60000 * np.exp(np.cumsum(actual_returns))
-    
-    # Generate Ridge predictions (Actual + some noise)
-    ridge_returns = actual_returns + np.random.normal(0, 0.005, n)
-    ridge_prices = actual_prices * np.random.normal(1, 0.002, n)
-    
-    df = pd.DataFrame({
-        "Date": dates,
-        "Actual_Price": actual_prices,
-        "Actual_Return_%": actual_returns * 100,
-        "Volume": np.random.randint(2000, 10000, n),
-        "Ridge_Pred_Price": ridge_prices,
-        "Ridge_Pred_Return_%": ridge_returns * 100
-    })
-    
-    # Apply the real test set metrics from Google Colab
-    mae = 0.6428
-    rmse = 0.9198
-    da = 57.12
-    
-    return df, mae, rmse, da
+def load_real_data():
+    try:
+        import joblib
+        model = joblib.load('ridge_model.pkl')
+        X_scaled = pd.read_csv('train_test_dataset/X_test_trans_scaled.csv')
+        X_raw = pd.read_csv('train_test_dataset/X_test_raw.csv')
+        y_test = pd.read_csv('train_test_dataset/y_test.csv')
+        
+        preds = model.predict(X_scaled)
+        
+        n = len(X_raw)
+        # Generate fake dates since the CSV doesn't have a Date column
+        dates = pd.date_range(end=pd.Timestamp('2026-01-01'), periods=n, freq='B')
+        
+        # Calculate prices based on Lag1 Price and the Return
+        # Assuming y_test['Exact_Return'] is in percentage terms
+        actual_returns = y_test['Exact_Return'].values
+        actual_prices = X_raw['Price_Lag1'].values * (1 + actual_returns / 100)
+        
+        ridge_returns = preds.flatten()
+        ridge_prices = X_raw['Price_Lag1'].values * (1 + ridge_returns / 100)
+        
+        df = pd.DataFrame({
+            "Date": dates,
+            "Actual_Price": actual_prices,
+            "Actual_Return_%": actual_returns,
+            "Volume": X_raw['Volume_Lag1'].values,
+            "Ridge_Pred_Price": ridge_prices,
+            "Ridge_Pred_Return_%": ridge_returns
+        })
+        
+        mae = 0.6428
+        rmse = 0.9198
+        da = 57.12
+        return df, mae, rmse, da
+    except Exception as e:
+        st.error(f"Failed to load live data: {e}")
+        st.stop()
 
-df_test, dummy_mae, dummy_rmse, dummy_da = generate_dummy_data()
+df_test, dummy_mae, dummy_rmse, dummy_da = load_real_data()
 
 models_list = [
     "Ridge Regression",
