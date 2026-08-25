@@ -9,11 +9,10 @@ import plotly.graph_objects as go
 # ==============================================================================
 st.set_page_config(
     page_title="Gold Forecaster",
-    page_icon="🪙",
     layout="wide"
 )
 
-st.title("🪙 MCX Gold Mini Daily Return & Price Forecaster")
+st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
 # ==============================================================================
@@ -31,7 +30,7 @@ def generate_dummy_data():
     
     # Generate Ridge predictions (Actual + some noise)
     ridge_returns = actual_returns + np.random.normal(0, 0.005, n)
-    ridge_prices = 60000 * np.exp(np.cumsum(ridge_returns))
+    ridge_prices = actual_prices * np.random.normal(1, 0.002, n)
     
     df = pd.DataFrame({
         "Date": dates,
@@ -63,7 +62,7 @@ models_list = [
 # ==============================================================================
 # 1. GLOBAL HEADER: MODEL LEADERBOARD
 # ==============================================================================
-st.header("🏆 Model Leaderboard")
+st.header("Model Leaderboard")
 
 leaderboard_data = []
 for m in models_list:
@@ -73,7 +72,7 @@ for m in models_list:
             "MAE": f"{dummy_mae:.4f}",
             "RMSE": f"{dummy_rmse:.4f}",
             "Directional Accuracy": f"{dummy_da:.2f}%",
-            "Status": "✅ Active"
+            "Status": "Active"
         })
     else:
         leaderboard_data.append({
@@ -81,7 +80,7 @@ for m in models_list:
             "MAE": "TBD",
             "RMSE": "TBD",
             "Directional Accuracy": "TBD",
-            "Status": "🚧 Future Development"
+            "Status": "Future Development"
         })
 
 df_leaderboard = pd.DataFrame(leaderboard_data)
@@ -93,16 +92,16 @@ st.divider()
 # TABS SETUP
 # ==============================================================================
 tab1, tab2, tab3 = st.tabs([
-    "📈 Tab 1: Master Overview (All Models vs Actual)", 
-    "📅 Tab 2: Historical Data Explorer (Dynamic Backtesting)", 
-    "🎛️ Tab 3: Live Custom Prediction (Sandbox Mode)"
+    "Tab 1: Master Overview (All Models vs Actual)", 
+    "Tab 2: Historical Data Explorer (Dynamic Backtesting)", 
+    "Tab 3: Live Custom Prediction (Sandbox Mode)"
 ])
 
 # ==============================================================================
 # TAB 1: MASTER OVERVIEW
 # ==============================================================================
 with tab1:
-    st.subheader("📈 Master Overview (All Models vs Actual)")
+    st.subheader("Master Overview (All Models vs Actual)")
     st.write("A 'big picture' view of the entire test dataset (2023 - 2026).")
     st.info("Note: Currently only Ridge Regression is plotted. Other models (XGBoost, TCN, etc.) will be added to this graph in Future Development.")
     
@@ -115,17 +114,26 @@ with tab1:
         xaxis_title="Date",
         yaxis_title="Price (₹)",
         hovermode="x unified",
+        dragmode="pan",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(
+        fig, 
+        use_container_width=True, 
+        config={
+            'displaylogo': False,
+            'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
+            'scrollZoom': True
+        }
+    )
 
 
 # ==============================================================================
 # TAB 2: HISTORICAL DATA EXPLORER
 # ==============================================================================
 with tab2:
-    st.subheader("📅 Historical Data Explorer (Dynamic Backtesting)")
+    st.subheader("Historical Data Explorer (Dynamic Backtesting)")
     st.write("Zoom in on specific historical periods to see how models performed.")
     
     col1, col2 = st.columns([1, 1])
@@ -133,10 +141,10 @@ with tab2:
         min_date = df_test['Date'].min().date()
         max_date = df_test['Date'].max().date()
         
-        # We pass an empty tuple or start date to allow single/range selection natively
+        # We pass a tuple to allow native date range selection in Streamlit
         selected_dates = st.date_input(
             "Select a Date or Date Range:", 
-            value=min_date, 
+            value=(min_date, max_date), 
             min_value=min_date, 
             max_value=max_date
         )
@@ -182,7 +190,7 @@ with tab2:
                 actual_ret = row_data['Actual_Return_%']
                 pred_ret = row_data['Ridge_Pred_Return_%']
                 
-                st.markdown(f"### 📊 Predictions for {start_date}")
+                st.markdown(f"### Predictions for {start_date}")
                 mcol1, mcol2 = st.columns(2)
                 
                 with mcol1:
@@ -210,7 +218,7 @@ with tab2:
                 df_range['Cum_Actual_Return'] = (1 + df_range['Actual_Return_%']/100).cumprod() - 1
                 df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
                 
-                st.markdown(f"### 📈 Cumulative Return from {start_date} to {end_date}")
+                st.markdown(f"### Cumulative Return from {start_date} to {end_date}")
                 
                 fig_cum = go.Figure()
                 fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
@@ -223,7 +231,15 @@ with tab2:
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
                 
-                st.plotly_chart(fig_cum, use_container_width=True)
+                st.plotly_chart(
+                    fig_cum, 
+                    use_container_width=True,
+                    config={
+                        'displaylogo': False,
+                        'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
+                        'scrollZoom': True
+                    }
+                )
             else:
                 st.warning("No data found in the selected date range.")
     else:
@@ -234,7 +250,7 @@ with tab2:
 # TAB 3: LIVE CUSTOM PREDICTION (SANDBOX MODE)
 # ==============================================================================
 with tab3:
-    st.subheader("🎛️ Live Custom Prediction (Sandbox Mode)")
+    st.subheader("Live Custom Prediction (Sandbox Mode)")
     st.write("Pure 'what-if' exploration. Manually input yesterday's data to predict tomorrow's return (no ground truth).")
     
     col1, col2 = st.columns(2)
@@ -246,7 +262,7 @@ with tab3:
         selected_model_tab3 = st.selectbox("Select Model:", models_list, key="tab3_model")
         st.write("")
         st.write("")
-        predict_button = st.button("🚀 Run Prediction", type="primary", use_container_width=True)
+        predict_button = st.button("Run Prediction", type="primary", use_container_width=True)
         
     if predict_button:
         if selected_model_tab3 == "Ridge Regression":
