@@ -41,10 +41,10 @@ def generate_dummy_data():
         "Ridge_Pred_Return_%": ridge_returns * 100
     })
     
-    # Calculate dummy metrics
-    mae = 0.45
-    rmse = 0.65
-    da = 52.3
+    # Apply the real test set metrics from Google Colab
+    mae = 0.6428
+    rmse = 0.9198
+    da = 57.12
     
     return df, mae, rmse, da
 
@@ -121,6 +121,36 @@ with tab1:
     
     st.plotly_chart(
         fig, 
+        use_container_width=True, 
+        config={
+            'displaylogo': False,
+            'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
+            'scrollZoom': True
+        }
+    )
+    
+    st.markdown("---")
+    st.subheader("Cumulative Return (All Models vs Actual)")
+    
+    df_test['Cum_Actual'] = (1 + df_test['Actual_Return_%']/100).cumprod() - 1
+    df_test['Cum_Ridge'] = (1 + df_test['Ridge_Pred_Return_%']/100).cumprod() - 1
+    
+    fig2 = go.Figure()
+    fig2.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Cum_Actual'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
+    fig2.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Cum_Ridge'] * 100, mode='lines', name='Ridge Predicted', line=dict(color='green', dash='dash')))
+    
+    fig2.update_layout(
+        title="Cumulative Return (%) over Test Set",
+        xaxis_title="Date",
+        yaxis_title="Cumulative Return (%)",
+        hovermode="x unified",
+        dragmode="pan",
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+    fig2.update_xaxes(tickformat="%Y-%m-%d")
+    
+    st.plotly_chart(
+        fig2, 
         use_container_width=True, 
         config={
             'displaylogo': False,
@@ -284,17 +314,14 @@ with tab3:
         sandbox_volume = st.number_input("Yesterday's Volume:", value=5000, step=500)
     with col2:
         selected_model_tab3 = st.selectbox("Select Model:", models_list, key="tab3_model")
-        st.write("")
-        st.write("")
-        predict_button = st.button("Run Prediction", type="primary", use_container_width=True)
         
-    if predict_button:
-        if selected_model_tab3 == "Ridge Regression":
-            # Generate a dummy prediction for Ridge
-            sandbox_pred = sandbox_return * 0.95 + np.random.normal(0, 0.1)
-            sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
-            
-            st.success(f"**Ridge Regression Predicted Exact Change:** {sandbox_pred:+.4f}%")
-            st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
-        else:
-            st.warning(f"This model ({selected_model_tab3}) is currently under Future Development. Please select Ridge Regression.")
+    st.markdown("### Prediction Results")
+    if selected_model_tab3 == "Ridge Regression":
+        # Generate a dummy prediction for Ridge
+        sandbox_pred = sandbox_return * 0.95 + np.random.normal(0, 0.1)
+        sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
+        
+        st.success(f"**Ridge Regression Predicted Exact Change:** {sandbox_pred:+.4f}%")
+        st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
+    else:
+        st.warning(f"This model ({selected_model_tab3}) is currently under Future Development. Please select Ridge Regression.")
