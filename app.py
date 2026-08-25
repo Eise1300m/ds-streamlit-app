@@ -117,6 +117,7 @@ with tab1:
         dragmode="pan",
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
     )
+    fig.update_xaxes(tickformat="%Y-%m-%d")
     
     st.plotly_chart(
         fig, 
@@ -230,6 +231,7 @@ with tab2:
                     hovermode="x unified",
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
+                fig_cum.update_xaxes(tickformat="%Y-%m-%d")
                 
                 st.plotly_chart(
                     fig_cum, 
@@ -240,6 +242,28 @@ with tab2:
                         'scrollZoom': True
                     }
                 )
+                
+                st.markdown("### Range Summary Table")
+                range_stats = []
+                for m in selected_models_tab2:
+                    if m == "Ridge Regression":
+                        avg_pred_chg = df_range['Ridge_Pred_Return_%'].mean()
+                        avg_price_err = (df_range['Ridge_Pred_Price'] - df_range['Actual_Price']).mean()
+                        trend = "Upward" if df_range['Cum_Ridge_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                        })
+                    else:
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": "TBD",
+                            "Avg Predicted Chg %": "TBD",
+                            "Avg Price Pred Diff": "TBD"
+                        })
+                st.dataframe(pd.DataFrame(range_stats), use_container_width=True, hide_index=True)
             else:
                 st.warning("No data found in the selected date range.")
     else:
@@ -268,6 +292,9 @@ with tab3:
         if selected_model_tab3 == "Ridge Regression":
             # Generate a dummy prediction for Ridge
             sandbox_pred = sandbox_return * 0.95 + np.random.normal(0, 0.1)
+            sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
+            
             st.success(f"**Ridge Regression Predicted Exact Change:** {sandbox_pred:+.4f}%")
+            st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
         else:
             st.warning(f"This model ({selected_model_tab3}) is currently under Future Development. Please select Ridge Regression.")
