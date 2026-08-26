@@ -36,6 +36,11 @@ def load_real_data():
         
         model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ridge_model.pkl'))
         try:
+            xgb_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'xgboost_tuned.pkl'))
+        except Exception as e:
+            xgb_model = None
+            st.warning(f"Could not load XGBoost Model: {e}")
+        try:
             ensemble_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ensemble_model.pkl'))
         except Exception as e:
             ensemble_model = None
@@ -72,6 +77,14 @@ def load_real_data():
             "Ridge_Pred_Return_%": ridge_returns
         })
         
+        # Generate XGBoost Predictions if model loaded successfully
+        if xgb_model is not None:
+            xgb_preds = xgb_model.predict(X_raw)
+            xgb_returns = xgb_preds.flatten()
+            xgb_prices = X_raw['Price_Lag1'].values * (1 + xgb_returns / 100)
+            df["XGBoost_Pred_Price"] = xgb_prices
+            df["XGBoost_Pred_Return_%"] = xgb_returns
+        
         # Generate Ensemble Predictions if model loaded successfully
         if ensemble_model is not None:
             seq_len = ensemble_model.seq_len
@@ -84,20 +97,18 @@ def load_real_data():
             df["Ensemble Model: XGBoost + TCN_Pred_Price"] = ensemble_prices
             df["Ensemble Model: XGBoost + TCN_Pred_Return_%"] = ensemble_returns
         
-        mae = 0.6428
-        rmse = 0.9198
         # Get model coefficients for feature importance
         coefs = model.coef_
         if len(coefs.shape) > 1:
             coefs = coefs.flatten()
         preprocessors = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'preprocessors.pkl'))
         
-        return df, coefs, X_scaled, y_test, X_train_scaled, X_train_raw, y_train, model, ensemble_model, preprocessors
+        return df, coefs, X_scaled, X_raw, y_test, X_train_scaled, X_train_raw, y_train, model, xgb_model, ensemble_model, preprocessors
     except Exception as e:
         st.error(f"Failed to load live data: {e}")
         st.stop()
 
-df_test, ridge_coefs, X_test_scaled, y_test_df, X_train_scaled, X_train_raw, y_train_df, ridge_model, ensemble_model, preprocessors = load_real_data()
+df_test, ridge_coefs, X_test_scaled, X_test_raw, y_test_df, X_train_scaled, X_train_raw, y_train_df, ridge_model, xgb_model, ensemble_model, preprocessors = load_real_data()
 
 models_list = [
     "Ridge Regression",
@@ -207,17 +218,19 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
                 
         elif weight_model == "XGBoost":
             st.write("XGBoost uses **Toolbox A (Raw Features)**. It assigns 'Gain' weights based on how much a feature improves tree splits.")
-            st.info("XGBoost model file not yet integrated. The chart below is a placeholder.")
-            xgb_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
-            mock_weights = [0.45, 0.20, 0.15, 0.10, 0.05, 0.05]
-            fig_xgb = go.Figure(go.Bar(
-                x=mock_weights,
-                y=xgb_feats,
-                orientation='h',
-                marker_color='blue'
-            ))
-            fig_xgb.update_layout(title="XGBoost Feature Importance (Mock Gain)", xaxis_title="Gain Weight", yaxis_title="Feature")
-            st.plotly_chart(fig_xgb, use_container_width=True)
+            if xgb_model is not None:
+                xgb_feats = X_test_raw.columns.tolist()
+                xgb_importances = xgb_model.feature_importances_
+                fig_xgb = go.Figure(go.Bar(
+                    x=xgb_importances,
+                    y=xgb_feats,
+                    orientation='h',
+                    marker_color='blue'
+                ))
+                fig_xgb.update_layout(title="XGBoost Feature Importance (Gain)", xaxis_title="Gain Weight", yaxis_title="Feature")
+                st.plotly_chart(fig_xgb, use_container_width=True)
+            else:
+                st.warning("XGBoost model could not be loaded.")
             
         else:
             st.warning(f"**{weight_model}** does not output simple native weights. It is a complex 'Black-Box' model.")
@@ -297,9 +310,12 @@ with tab1:
         
         # Filter table columns based on selected models
         display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume"]
+        active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN"]
         for m in selected_models_tab2:
             if m == "Ridge Regression":
                 display_cols.extend(["Ridge_Pred_Price", "Ridge_Pred_Return_%"])
+            elif m == "XGBoost" and "XGBoost_Pred_Price" in df_range.columns:
+                display_cols.extend(["XGBoost_Pred_Price", "XGBoost_Pred_Return_%"])
             elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
                 display_cols.extend(["Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"])
             else:
@@ -313,12 +329,13 @@ with tab1:
     st.write("Zoom in on specific historical periods to see how models performed.")
     
     # Check for unfinished models warning
+    active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN"]
     for sm in selected_models_tab2:
-        if sm != "Ridge Regression":
+        if sm not in active_models:
             st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
 
     # DYNAMIC LOGIC
-    if "Ridge Regression" in selected_models_tab2:
+    if any(m in selected_models_tab2 for m in active_models):
         if is_single_date:
             date_mask = df_test['Date'].dt.date == start_date
             if not date_mask.any():
@@ -360,6 +377,8 @@ with tab1:
                 
                 if "Ridge Regression" in selected_models_tab2:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
+                if "XGBoost" in selected_models_tab2 and "XGBoost_Pred_Price" in df_range.columns:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['XGBoost_Pred_Price'], mode='lines', name='XGBoost Predicted Price', line=dict(color='red', dash='dash')))
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color='orange', dash='dot')))
                     
@@ -378,6 +397,10 @@ with tab1:
                 if "Ridge Regression" in selected_models_tab2:
                     df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color='green')))
+                
+                if "XGBoost" in selected_models_tab2 and "XGBoost_Pred_Return_%" in df_range.columns:
+                    df_range['Cum_XGB_Return'] = (1 + df_range['XGBoost_Pred_Return_%']/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_XGB_Return'] * 100, mode='lines', name='XGBoost', line=dict(color='red')))
                     
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
                     df_range['Cum_Ens_Return'] = (1 + df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"]/100).cumprod() - 1
@@ -409,6 +432,16 @@ with tab1:
                         avg_pred_chg = df_range['Ridge_Pred_Return_%'].mean()
                         avg_price_err = (df_range['Ridge_Pred_Price'] - df_range['Actual_Price']).mean()
                         trend = "Upward" if df_range['Cum_Ridge_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                        })
+                    elif m == "XGBoost" and "XGBoost_Pred_Return_%" in df_range.columns:
+                        avg_pred_chg = df_range['XGBoost_Pred_Return_%'].mean()
+                        avg_price_err = (df_range['XGBoost_Pred_Price'] - df_range['Actual_Price']).mean()
+                        trend = "Upward" if df_range['Cum_XGB_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
@@ -478,9 +511,22 @@ with tab2:
         st.success(f"**Ridge Regression Predicted Exact Change:** {sandbox_pred:+.4f}%")
         st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
         
+    elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
+        # Build a raw feature row from user inputs + last known test row for missing features
+        last_raw_row = X_test_raw.iloc[-1].copy()
+        last_raw_row['Price_Lag1'] = sandbox_price
+        last_raw_row['Volume_Lag1'] = sandbox_volume
+        last_raw_row['Exact_Return_Lag1'] = sandbox_return
+        
+        sandbox_pred = xgb_model.predict(pd.DataFrame([last_raw_row]))[0]
+        sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
+        
+        st.success(f"**XGBoost Predicted Exact Change:** {sandbox_pred:+.4f}%")
+        st.info(f"**XGBoost Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
+        
     elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
         # Prepare 30-day window using last 29 days of test set + 1 user simulated day
-        context_window = X_raw.iloc[-(ensemble_model.seq_len - 1):].copy()
+        context_window = X_test_raw.iloc[-(ensemble_model.seq_len - 1):].copy()
         
         # Create user simulated row
         sim_row = context_window.iloc[-1].copy()
@@ -499,4 +545,4 @@ with tab2:
         st.info(f"**Ensemble Model Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
         
     else:
-        st.warning(f"Live prediction for '{selected_model_tab3}' is currently under Future Development. Please select Ridge Regression or Ensemble Model.")
+        st.warning(f"Live prediction for '{selected_model_tab3}' is currently under Future Development. Please select Ridge Regression, XGBoost, or Ensemble Model.")
