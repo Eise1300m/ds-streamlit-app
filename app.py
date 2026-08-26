@@ -73,6 +73,9 @@ def load_real_data():
             "Actual_Price": actual_prices,
             "Actual_Return_%": actual_returns,
             "Volume": X_raw['Volume_Lag1'].values,
+            "Vol_7d": X_raw['Vol_7d'].values,
+            "Vol_30d": X_raw['Vol_30d'].values,
+            "Is_Anomaly": X_raw['Is_Anomaly'].values,
             "Ridge_Pred_Price": ridge_prices,
             "Ridge_Pred_Return_%": ridge_returns
         })
@@ -309,7 +312,7 @@ with tab1:
         st.write("Explore the dataset interactively. The table updates based on the models you select above!")
         
         # Filter table columns based on selected models
-        display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume"]
+        display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume", "Vol_7d", "Vol_30d", "Is_Anomaly"]
         active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN"]
         for m in selected_models_tab2:
             if m == "Ridge Regression":
@@ -382,8 +385,17 @@ with tab1:
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color='orange', dash='dot')))
                     
-                fig_price_range.update_layout(hovermode="x unified", dragmode="pan")
-                st.plotly_chart(fig_price_range, use_container_width=True)
+                fig_price_range.update_layout(hovermode="x unified")
+                st.plotly_chart(
+                    fig_price_range, 
+                    use_container_width=True,
+                    config={
+                        'displaylogo': False,
+                        'modeBarButtonsToRemove': [],
+                        'displayModeBar': True,
+                        'scrollZoom': True
+                    }
+                )
                 # ------------------------------------------
 
                 st.markdown("#### Cumulative Return in Selected Range")
@@ -420,7 +432,8 @@ with tab1:
                     use_container_width=True,
                     config={
                         'displaylogo': False,
-                        'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
+                        'modeBarButtonsToRemove': [],
+                        'displayModeBar': True,
                         'scrollZoom': True
                     }
                 )
