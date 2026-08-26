@@ -75,8 +75,8 @@ def load_real_data():
         # Generate Ensemble Predictions if model loaded successfully
         if ensemble_model is not None:
             seq_len = ensemble_model.seq_len
-            # Combine the end of training data with test data to provide the 30-day sequence context
-            context_raw = pd.concat([X_train_raw.iloc[-(seq_len - 1):], X_raw])
+            # Combine the end of training data with test data to provide the full 30-day sequence context
+            context_raw = pd.concat([X_train_raw.iloc[-seq_len:], X_raw])
             
             ensemble_returns = ensemble_model.predict(context_raw)
             ensemble_prices = X_raw['Price_Lag1'].values * (1 + ensemble_returns / 100)
