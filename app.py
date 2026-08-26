@@ -16,6 +16,36 @@ st.set_page_config(
     layout="wide"
 )
 
+# Custom CSS for clear section separation
+st.markdown("""
+<style>
+/* Section banner styling */
+.section-banner {
+    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
+    color: #e0e0e0;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border-left: 5px solid #4fc3f7;
+    margin: 18px 0 12px 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+}
+.section-banner.interactive {
+    border-left-color: #81c784;
+    background: linear-gradient(90deg, #1b2a1e 0%, #1a2e1a 100%);
+}
+/* Leaderboard card wrapper */
+.overview-block {
+    background: #f8f9fc;
+    border: 1px solid #e0e4ef;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+}
+</style>
+""", unsafe_allow_html=True)
+
 st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
@@ -58,17 +88,29 @@ models_list = [
     "LSTM"
 ]
 
+# ── SECTION 1: STATIC DASHBOARD OVERVIEW ─────────────────────────────────────
+st.markdown('<div class="section-banner">📊 Dashboard Overview — Model Performance Summary</div>', unsafe_allow_html=True)
+
 # Hardcoded true metrics from user
 leaderboard_data = [
-    {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%", "Status": "Active"},
-    {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%", "Status": "Active"},
-    {"Model": "Ridge Regression", "MAE": "0.6428", "RMSE": "0.9198", "Directional Accuracy": "57.12%", "Status": "Active"},
-    {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%", "Status": "Active"},
-    {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%", "Status": "Active"},
-    {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%", "Status": "Active"}
+    {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%", "Status": "✅ Active"},
+    {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%", "Status": "✅ Active"},
+    {"Model": "Ridge Regression", "MAE": "0.6428", "RMSE": "0.9198", "Directional Accuracy": "57.12%", "Status": "✅ Active"},
+    {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%", "Status": "✅ Active"},
+    {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%", "Status": "✅ Active"},
+    {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%", "Status": "✅ Active"}
 ]
 
+# Quick KPI row — best model highlights
+_kc1, _kc2, _kc3, _kc4 = st.columns(4)
+_kc1.metric("🏆 Best MAE", "0.6350", "Ensemble XGB+TCN", delta_color="off")
+_kc2.metric("🏆 Best RMSE", "0.9100", "Ensemble XGB+TCN", delta_color="off")
+_kc3.metric("🏆 Best Direction", "60.56%", "SVR", delta_color="off")
+_kc4.metric("📅 Test Period", "611 days", "2022 – 2026", delta_color="off")
+st.markdown("")
+
 # Display Leaderboard
+st.caption("Full Model Leaderboard")
 st.dataframe(pd.DataFrame(leaderboard_data), use_container_width=True, hide_index=True)
 
 with st.expander("Click to View More About Model: Feature Importance Visualizations"):
@@ -192,12 +234,12 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         fig_perm.update_layout(title="Ensemble Model Permutation Importance", xaxis_title="Increase in RMSE when shuffled", yaxis_title="Feature")
         st.plotly_chart(fig_perm, use_container_width=True)
 
-# ==============================================================================
-# TABS SETUP
-# ==============================================================================
+# ── SECTION 2: INTERACTIVE ANALYSIS TOOLS ────────────────────────────────────
+st.markdown('<div class="section-banner interactive">🔍 Interactive Analysis Tools — Explore & Forecast</div>', unsafe_allow_html=True)
+
 tab1, tab2 = st.tabs([
-    "Master Overview & Explorer", 
-    "Live Next-day prediction"
+    "📈 Master Overview & Explorer",
+    "🔮 Live Next-Day Prediction"
 ])
 
 # ==============================================================================
@@ -287,7 +329,7 @@ with tab1:
     # --- Color picker toolbar (always rendered at fixed location to prevent re-run loop) ---
     color_lines = ["Actual Price"] + [m for m in selected_models_tab2 if m in active_models]
     _toolbar_cols = st.columns(len(color_lines) + 1)
-    _toolbar_cols[0].markdown("🎨 **Chart Colors:**")
+    _toolbar_cols[0].markdown("**Chart Colors:**")
     chart_colors = {k: default_colors[k] for k in default_colors}
     for _ci, _cl in enumerate(color_lines):
         _lbl = _cl if len(_cl) <= 12 else _cl[:12] + "…"
