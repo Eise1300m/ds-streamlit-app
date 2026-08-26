@@ -22,7 +22,21 @@ st.divider()
 def load_real_data():
     try:
         import joblib
-        model = joblib.load('ridge_model.pkl')
+        import model_architecture
+        import __main__
+        
+        # Bind the custom classes to __main__ so joblib can successfully unpickle them
+        __main__.EnsembleModel = model_architecture.EnsembleModel
+        __main__.TCN = model_architecture.TCN
+        __main__.TemporalBlock = model_architecture.TemporalBlock
+        __main__.preprocess_for_tcn = model_architecture.preprocess_for_tcn
+        
+        model = joblib.load('Model_PKL/ridge_model.pkl')
+        try:
+            ensemble_model = joblib.load('Model_PKL/ensemble_model.pkl')
+        except Exception as e:
+            ensemble_model = None
+            st.warning(f"Could not load Ensemble Model: {e}")
         X_scaled = pd.read_csv('train_test_dataset/X_test_trans_scaled.csv')
         X_raw = pd.read_csv('train_test_dataset/X_test_raw.csv')
         y_test = pd.read_csv('train_test_dataset/y_test.csv')
@@ -49,6 +63,18 @@ def load_real_data():
             "Ridge_Pred_Price": ridge_prices,
             "Ridge_Pred_Return_%": ridge_returns
         })
+        
+        # Generate Ensemble Predictions if model loaded successfully
+        if ensemble_model is not None:
+            seq_len = ensemble_model.seq_len
+            # Combine the end of training data with test data to provide the 30-day sequence context
+            context_raw = pd.concat([X_train_raw.iloc[-(seq_len - 1):], X_raw])
+            
+            ensemble_returns = ensemble_model.predict(context_raw)
+            ensemble_prices = X_raw['Price_Lag1'].values * (1 + ensemble_returns / 100)
+            
+            df["Ensemble Model: XGBoost + TCN_Pred_Price"] = ensemble_prices
+            df["Ensemble Model: XGBoost + TCN_Pred_Return_%"] = ensemble_returns
         
         mae = 0.6428
         rmse = 0.9198
@@ -92,6 +118,15 @@ for m in models_list:
             "MAE": f"{dummy_mae:.4f}",
             "RMSE": f"{dummy_rmse:.4f}",
             "Directional Accuracy": f"{dummy_da}%",
+            "Status": "Active"
+        })
+    elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_test.columns:
+        ens_mae = np.mean(np.abs(df_test["Ensemble Model: XGBoost + TCN_Pred_Price"] - df_test['Actual_Price']))
+        leaderboard_data.append({
+            "Model": m,
+            "MAE": f"{ens_mae:.4f}",
+            "RMSE": "Calculating...",
+            "Directional Accuracy": "Calculating...",
             "Status": "Active"
         })
     else:
@@ -165,16 +200,47 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
     with feat_tab2:
         st.subheader("Category 2: Native Model Weights")
-        st.write("Ridge Regression mathematically assigns coefficients (weights). Features with larger absolute values have a stronger impact.")
-        features = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-        fig_feat = go.Figure(go.Bar(
-            x=ridge_coefs,
-            y=features,
-            orientation='h',
-            marker_color=['green' if val > 0 else 'orange' for val in ridge_coefs]
-        ))
-        fig_feat.update_layout(title="Ridge Regression Coefficients", xaxis_title="Weight", yaxis_title="Feature")
-        st.plotly_chart(fig_feat, use_container_width=True)
+        st.write("Certain models mathematically assign coefficients or gains to features. We can visualize these native weights directly.")
+        
+        weight_model = st.selectbox(
+            "Select Model to View Weights:", 
+            ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
+            key="weight_model_select"
+        )
+        
+        if weight_model == "Ridge Regression":
+            st.write("Ridge Regression uses **Toolbox B (Transformed Features)**. Features with larger absolute values have a stronger impact.")
+            ridge_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly','Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d']
+            # Ensure the lengths match to prevent ValueError
+            if len(ridge_coefs) == len(ridge_feats):
+                fig_feat = go.Figure(go.Bar(
+                    x=ridge_coefs,
+                    y=ridge_feats,
+                    orientation='h',
+                    marker_color=['green' if val > 0 else 'orange' for val in ridge_coefs]
+                ))
+                fig_feat.update_layout(title="Ridge Regression Coefficients", xaxis_title="Weight", yaxis_title="Feature")
+                st.plotly_chart(fig_feat, use_container_width=True)
+            else:
+                st.error("Mismatch between Ridge coefficients and features list.")
+                
+        elif weight_model == "XGBoost":
+            st.write("XGBoost uses **Toolbox A (Raw Features)**. It assigns 'Gain' weights based on how much a feature improves tree splits.")
+            st.info("XGBoost model file not yet integrated. The chart below is a placeholder.")
+            xgb_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
+            mock_weights = [0.45, 0.20, 0.15, 0.10, 0.05, 0.05]
+            fig_xgb = go.Figure(go.Bar(
+                x=mock_weights,
+                y=xgb_feats,
+                orientation='h',
+                marker_color='blue'
+            ))
+            fig_xgb.update_layout(title="XGBoost Feature Importance (Mock Gain)", xaxis_title="Gain Weight", yaxis_title="Feature")
+            st.plotly_chart(fig_xgb, use_container_width=True)
+            
+        else:
+            st.warning(f"**{weight_model}** does not output simple native weights. It is a complex 'Black-Box' model.")
+            st.write("👉 Please go to **Tab 3: Permutation Importance** to analyze how features impact this model's predictions.")
         
     with feat_tab3:
         st.subheader("Category 3: Black-Box Analysis (Permutation Importance)")
@@ -241,6 +307,8 @@ with tab1:
         for m in selected_models_tab2:
             if m == "Ridge Regression":
                 display_cols.extend(["Ridge_Pred_Price", "Ridge_Pred_Return_%"])
+            elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
+                display_cols.extend(["Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"])
             else:
                 # Add dummy columns for unfinished models so the user sees them in the table
                 df_range[f"{m}_Pred_Price"] = "TBD"
@@ -296,7 +364,12 @@ with tab1:
                 st.markdown("#### Price Forecast in Selected Range")
                 fig_price_range = go.Figure()
                 fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color='blue')))
-                fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
+                
+                if "Ridge Regression" in selected_models_tab2:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
+                if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color='orange', dash='dot')))
+                    
                 fig_price_range.update_layout(hovermode="x unified", dragmode="pan")
                 st.plotly_chart(fig_price_range, use_container_width=True)
                 # ------------------------------------------
@@ -305,11 +378,18 @@ with tab1:
                 
                 # Calculate relative cumulative return from the start of the selected period
                 df_range['Cum_Actual_Return'] = (1 + df_range['Actual_Return_%']/100).cumprod() - 1
-                df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
                 
                 fig_cum = go.Figure()
                 fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
-                fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color='green')))
+                
+                if "Ridge Regression" in selected_models_tab2:
+                    df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color='green')))
+                    
+                if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
+                    df_range['Cum_Ens_Return'] = (1 + df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"]/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ens_Return'] * 100, mode='lines', name='Ensemble (XGB+TCN)', line=dict(color='orange')))
+
                 
                 fig_cum.update_layout(
                     xaxis_title="Date",
@@ -336,6 +416,16 @@ with tab1:
                         avg_pred_chg = df_range['Ridge_Pred_Return_%'].mean()
                         avg_price_err = (df_range['Ridge_Pred_Price'] - df_range['Actual_Price']).mean()
                         trend = "Upward" if df_range['Cum_Ridge_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                        })
+                    elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
+                        avg_pred_chg = df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"].mean()
+                        avg_price_err = (df_range["Ensemble Model: XGBoost + TCN_Pred_Price"] - df_range['Actual_Price']).mean()
+                        trend = "Upward" if df_range['Cum_Ens_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
