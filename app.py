@@ -59,12 +59,12 @@ def load_real_data():
         if len(coefs.shape) > 1:
             coefs = coefs.flatten()
             
-        return df, mae, rmse, da, coefs
+        return df, mae, rmse, da, coefs, X_scaled, y_test
     except Exception as e:
         st.error(f"Failed to load live data: {e}")
         st.stop()
 
-df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs = load_real_data()
+df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs, X_scaled, y_test_df = load_real_data()
 
 models_list = [
     "Ridge Regression",
@@ -103,18 +103,46 @@ for m in models_list:
 st.dataframe(pd.DataFrame(leaderboard_data), use_container_width=True, hide_index=True)
 
 with st.expander("Click to View More About Model: Feature Importance Visualizations"):
-    st.subheader("Feature Importance (Ridge Regression)")
-    st.write("This chart visualizes the mathematical weights (coefficients) assigned to each feature by the Ridge Regression model. Features with larger absolute values have a stronger impact on the prediction.")
+    st.write("Understand the driving factors behind the model's predictions.")
     
-    features = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-    fig_feat = go.Figure(go.Bar(
-        x=ridge_coefs,
-        y=features,
-        orientation='h',
-        marker_color=['green' if val > 0 else 'orange' for val in ridge_coefs]
-    ))
-    fig_feat.update_layout(title="Model Coefficients (Weights)", xaxis_title="Weight", yaxis_title="Feature")
-    st.plotly_chart(fig_feat, use_container_width=True)
+    feat_tab1, feat_tab2, feat_tab3 = st.tabs(["1: Dataset Heatmap", "2: Native Weights", "3: Permutation Importance"])
+    
+    with feat_tab1:
+        st.subheader("Category 1: Dataset-Level Correlation Heatmap")
+        st.write("Before training, we analyze how features correlate with each other and the target to check for multicollinearity.")
+        
+        # Calculate correlation matrix
+        corr_df = X_scaled.copy()
+        corr_df['Target_Return'] = y_test_df['Exact_Return'].values
+        corr_matrix = corr_df.corr()
+        
+        fig_heat = go.Figure(data=go.Heatmap(
+            z=corr_matrix.values,
+            x=corr_matrix.columns,
+            y=corr_matrix.columns,
+            colorscale='RdBu',
+            zmin=-1, zmax=1
+        ))
+        fig_heat.update_layout(height=500, title="Feature Correlation Heatmap")
+        st.plotly_chart(fig_heat, use_container_width=True)
+        
+    with feat_tab2:
+        st.subheader("Category 2: Native Model Weights")
+        st.write("Ridge Regression mathematically assigns coefficients (weights). Features with larger absolute values have a stronger impact.")
+        features = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
+        fig_feat = go.Figure(go.Bar(
+            x=ridge_coefs,
+            y=features,
+            orientation='h',
+            marker_color=['green' if val > 0 else 'orange' for val in ridge_coefs]
+        ))
+        fig_feat.update_layout(title="Ridge Regression Coefficients", xaxis_title="Weight", yaxis_title="Feature")
+        st.plotly_chart(fig_feat, use_container_width=True)
+        
+    with feat_tab3:
+        st.subheader("Category 3: Black-Box Analysis (Permutation Importance)")
+        st.write("For complex ensembles like **XGBoost + TCN**, we measure what happens to the error if we scramble a specific feature (Permutation Importance).")
+        st.info("The Ensemble Model is currently in Future Development. Permutation Importance charts will populate here once the model is integrated.")
 
 # ==============================================================================
 # TABS SETUP
@@ -131,33 +159,21 @@ with tab1:
     st.subheader("Master Overview & Historical Data Explorer")
     st.info("Notice: The historical data has natural gaps between weekends and holidays (no trading data).")
     
-    with st.expander("Interactive Data Explorer & Filtering (Raw Data)"):
-        st.write("Explore the dataset interactively. You can sort columns, filter values, and analyze the data.")
-        st.dataframe(df_test, use_container_width=True, hide_index=True)
-        
-    st.write("Zoom in on specific historical periods to see how models performed.")
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
+    # Move Date and Model Selection to the TOP of Tab 1
+    col_d, col_m = st.columns([1, 1])
+    with col_d:
         min_date = df_test['Date'].min().date()
         max_date = df_test['Date'].max().date()
         
-        # We pass a tuple to allow native date range selection in Streamlit
         selected_dates = st.date_input(
             "Select a Date or Date Range:", 
             value=(min_date, max_date), 
             min_value=min_date, 
             max_value=max_date
         )
-    
-    with col2:
+    with col_m:
         selected_models_tab2 = st.multiselect("Select Model(s) to Evaluate:", models_list, default=["Ridge Regression"], key="tab2_models")
-        
-    # Check for unfinished models
-    for sm in selected_models_tab2:
-        if sm != "Ridge Regression":
-            st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
-            
+    
     # Process dates
     if isinstance(selected_dates, tuple):
         if len(selected_dates) == 1:
@@ -176,6 +192,32 @@ with tab1:
         is_single_date = True
         start_date = selected_dates
         end_date = selected_dates
+        
+    mask = (df_test['Date'].dt.date >= start_date) & (df_test['Date'].dt.date <= end_date)
+    df_range = df_test[mask].copy()
+
+    with st.expander("Interactive Data Explorer & Filtering (Raw Data)"):
+        st.write("Explore the dataset interactively. The table updates based on the models you select above!")
+        
+        # Filter table columns based on selected models
+        display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume"]
+        for m in selected_models_tab2:
+            if m == "Ridge Regression":
+                display_cols.extend(["Ridge_Pred_Price", "Ridge_Pred_Return_%"])
+            else:
+                # Add dummy columns for unfinished models so the user sees them in the table
+                df_range[f"{m}_Pred_Price"] = "TBD"
+                df_range[f"{m}_Pred_Return_%"] = "TBD"
+                display_cols.extend([f"{m}_Pred_Price", f"{m}_Pred_Return_%"])
+                
+        st.dataframe(df_range[display_cols], use_container_width=True, hide_index=True)
+        
+    st.write("Zoom in on specific historical periods to see how models performed.")
+    
+    # Check for unfinished models warning
+    for sm in selected_models_tab2:
+        if sm != "Ridge Regression":
+            st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
 
     # DYNAMIC LOGIC
     if "Ridge Regression" in selected_models_tab2:
@@ -209,10 +251,7 @@ with tab1:
                         delta_color="off"
                     )
         else:
-            # Date Range (> 1 day) -> Line graph of Cumulative Exact Return %
-            mask = (df_test['Date'].dt.date >= start_date) & (df_test['Date'].dt.date <= end_date)
-            df_range = df_test[mask].copy()
-            
+            # Date Range (> 1 day)
             if not df_range.empty:
                 st.markdown(f"### Range Analysis ({start_date} to {end_date})")
                 
