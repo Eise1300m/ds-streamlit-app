@@ -60,14 +60,15 @@ def load_real_data():
             coefs = coefs.flatten()
             
         X_train_scaled = pd.read_csv('train_test_dataset/X_train_trans_scaled.csv')
+        X_train_raw = pd.read_csv('train_test_dataset/X_train_raw.csv')
         y_train = pd.read_csv('train_test_dataset/y_train.csv')
             
-        return df, mae, rmse, da, coefs, X_scaled, y_test, X_train_scaled, y_train
+        return df, mae, rmse, da, coefs, X_scaled, y_test, X_train_scaled, X_train_raw, y_train
     except Exception as e:
         st.error(f"Failed to load live data: {e}")
         st.stop()
 
-df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs, X_test_scaled, y_test_df, X_train_scaled, y_train_df = load_real_data()
+df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs, X_test_scaled, y_test_df, X_train_scaled, X_train_raw, y_train_df = load_real_data()
 
 models_list = [
     "Ridge Regression",
@@ -114,8 +115,20 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         st.subheader("Category 1: Dataset-Level Correlation Heatmap")
         st.write("Before training, we analyze how features correlate with each other and the target to check for multicollinearity.")
         
-        # Calculate correlation matrix using Training Data
-        corr_df = X_train_scaled.copy()
+        dataset_choice = st.radio(
+            "Select Feature Toolbox to Analyze:", 
+            ["Toolbox A: Raw / Scale-Invariant Features (For XGBoost, RF)", "Toolbox B: Transformed / Scale-Sensitive Features (For Ridge, LSTM)"], 
+            horizontal=False
+        )
+        
+        if "Toolbox A" in dataset_choice:
+            corr_df = X_train_raw.copy()
+            title_text = "Toolbox A Correlation Heatmap"
+        else:
+            corr_df = X_train_scaled.copy()
+            title_text = "Toolbox B Correlation Heatmap"
+            
+        # Calculate correlation matrix using selected Training Data
         corr_df['Target_Return'] = y_train_df['Exact_Return'].values
         corr_matrix = corr_df.corr().round(2)
         
@@ -125,7 +138,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             aspect="auto",
             color_continuous_scale='RdBu',
             zmin=-1, zmax=1,
-            title="Training Data Feature Correlation Heatmap"
+            title=title_text
         )
         fig_heat.update_layout(height=600)
         st.plotly_chart(fig_heat, use_container_width=True)
