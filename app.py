@@ -160,7 +160,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
         dataset_choice = st.radio(
             "Select Feature Toolbox to Analyze:", 
-            ["Toolbox A: Raw / Scale-Invariant Features (For XGBoost, RF)", "Toolbox B: Transformed / Scale-Sensitive Features (For Ridge, LSTM)"], 
+            ["Toolbox A: Raw / Scale-Invariant Features (For XGBoost)", "Toolbox B: Transformed / Scale-Sensitive Features (For Ridge, LSTM, MLP, SVR, Ensemble Model)"], 
             horizontal=False
         )
         
@@ -202,7 +202,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
                 use_container_width=True,
                 config={
                     'displaylogo': False,
-                    'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                    'modeBarButtonsToRemove': ['pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
                 }
             )
         
@@ -218,7 +218,8 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
         if weight_model == "Ridge Regression":
             st.write("Ridge Regression uses **Toolbox B (Transformed Features)**. Features with larger absolute values have a stronger impact.")
-            ridge_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly','Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d']
+            ridge_feats = X_test_scaled.columns.tolist()
+            
             # Ensure the lengths match to prevent ValueError
             if len(ridge_coefs) == len(ridge_feats):
                 fig_feat = go.Figure(go.Bar(
@@ -230,7 +231,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
                 fig_feat.update_layout(title="Ridge Regression Coefficients", xaxis_title="Weight", yaxis_title="Feature")
                 st.plotly_chart(fig_feat, use_container_width=True)
             else:
-                st.error("Mismatch between Ridge coefficients and features list.")
+                st.error(f"Mismatch between Ridge coefficients (length: {len(ridge_coefs)}) and features list (length: {len(ridge_feats)}).")
                 
         elif weight_model == "XGBoost":
             st.write("XGBoost uses **Toolbox A (Raw Features)**. It assigns 'Gain' weights based on how much a feature improves tree splits.")
