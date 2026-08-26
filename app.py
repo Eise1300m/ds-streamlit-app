@@ -234,7 +234,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         st.plotly_chart(fig_perm, use_container_width=True)
 
 # ── SECTION 2: INTERACTIVE ANALYSIS TOOLS ────────────────────────────────────
-st.markdown('<div class="section-banner interactive">🔍 Interactive Analysis Tools — Explore & Forecast</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-banner interactive">Interactive Analysis Tools — Explore & Forecast</div>', unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs([
     "Master Overview & Explorer",
