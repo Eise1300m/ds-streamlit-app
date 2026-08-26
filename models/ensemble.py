@@ -58,7 +58,9 @@ def predict_sandbox(ensemble_model, X_test_raw,
     pred_price  : float — predicted next-day price
     """
     seq_len        = ensemble_model.seq_len
-    context_window = X_test_raw.iloc[-(seq_len - 1):].copy()
+    # Take seq_len rows as context, then append 1 user row → seq_len+1 total
+    # predict() creates (len - seq_len) = 1 window → exactly one prediction
+    context_window = X_test_raw.iloc[-seq_len:].copy()
 
     # Build the simulated "today" row using the last known context row
     # as a template (fills in Vol_7d, Vol_30d, Is_Anomaly automatically)
