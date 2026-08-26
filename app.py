@@ -59,12 +59,15 @@ def load_real_data():
         if len(coefs.shape) > 1:
             coefs = coefs.flatten()
             
-        return df, mae, rmse, da, coefs, X_scaled, y_test
+        X_train_scaled = pd.read_csv('train_test_dataset/X_train_trans_scaled.csv')
+        y_train = pd.read_csv('train_test_dataset/y_train.csv')
+            
+        return df, mae, rmse, da, coefs, X_scaled, y_test, X_train_scaled, y_train
     except Exception as e:
         st.error(f"Failed to load live data: {e}")
         st.stop()
 
-df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs, X_scaled, y_test_df = load_real_data()
+df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs, X_test_scaled, y_test_df, X_train_scaled, y_train_df = load_real_data()
 
 models_list = [
     "Ridge Regression",
@@ -111,19 +114,20 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         st.subheader("Category 1: Dataset-Level Correlation Heatmap")
         st.write("Before training, we analyze how features correlate with each other and the target to check for multicollinearity.")
         
-        # Calculate correlation matrix
-        corr_df = X_scaled.copy()
-        corr_df['Target_Return'] = y_test_df['Exact_Return'].values
-        corr_matrix = corr_df.corr()
+        # Calculate correlation matrix using Training Data
+        corr_df = X_train_scaled.copy()
+        corr_df['Target_Return'] = y_train_df['Exact_Return'].values
+        corr_matrix = corr_df.corr().round(2)
         
-        fig_heat = go.Figure(data=go.Heatmap(
-            z=corr_matrix.values,
-            x=corr_matrix.columns,
-            y=corr_matrix.columns,
-            colorscale='RdBu',
-            zmin=-1, zmax=1
-        ))
-        fig_heat.update_layout(height=500, title="Feature Correlation Heatmap")
+        fig_heat = px.imshow(
+            corr_matrix, 
+            text_auto=True, 
+            aspect="auto",
+            color_continuous_scale='RdBu',
+            zmin=-1, zmax=1,
+            title="Training Data Feature Correlation Heatmap"
+        )
+        fig_heat.update_layout(height=600)
         st.plotly_chart(fig_heat, use_container_width=True)
         
     with feat_tab2:
