@@ -53,12 +53,18 @@ def load_real_data():
         mae = 0.6428
         rmse = 0.9198
         da = 57.12
-        return df, mae, rmse, da
+        
+        # Get model coefficients for feature importance
+        coefs = model.coef_
+        if len(coefs.shape) > 1:
+            coefs = coefs.flatten()
+            
+        return df, mae, rmse, da, coefs
     except Exception as e:
         st.error(f"Failed to load live data: {e}")
         st.stop()
 
-df_test, dummy_mae, dummy_rmse, dummy_da = load_real_data()
+df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs = load_real_data()
 
 models_list = [
     "Ridge Regression",
@@ -72,7 +78,7 @@ models_list = [
 # ==============================================================================
 # 1. GLOBAL HEADER: MODEL LEADERBOARD
 # ==============================================================================
-st.header("Model Leaderboard")
+st.markdown("## Model Leaderboard 🔗", unsafe_allow_html=True)
 
 leaderboard_data = []
 for m in models_list:
@@ -81,30 +87,42 @@ for m in models_list:
             "Model": m,
             "MAE": f"{dummy_mae:.4f}",
             "RMSE": f"{dummy_rmse:.4f}",
-            "Directional Accuracy": f"{dummy_da:.2f}%",
+            "Directional Accuracy": f"{dummy_da}%",
             "Status": "Active"
         })
     else:
         leaderboard_data.append({
             "Model": m,
-            "MAE": "TBD",
-            "RMSE": "TBD",
-            "Directional Accuracy": "TBD",
-            "Status": "Future Development"
+            "MAE": "Future Development",
+            "RMSE": "Future Development",
+            "Directional Accuracy": "Future Development",
+            "Status": "Building"
         })
 
-df_leaderboard = pd.DataFrame(leaderboard_data)
-st.dataframe(df_leaderboard, use_container_width=True, hide_index=True)
+# Display Leaderboard
+st.dataframe(pd.DataFrame(leaderboard_data), use_container_width=True, hide_index=True)
 
-st.divider()
+with st.expander("🔗 Click to View More About Model: Feature Importance Visualizations (Requirement 3)"):
+    st.subheader("Feature Importance (Ridge Regression)")
+    st.write("This chart visualizes the mathematical weights (coefficients) assigned to each feature by the Ridge Regression model. Features with larger absolute values have a stronger impact on the prediction.")
+    
+    features = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
+    fig_feat = go.Figure(go.Bar(
+        x=ridge_coefs,
+        y=features,
+        orientation='h',
+        marker_color=['green' if val > 0 else 'red' for val in ridge_coefs]
+    ))
+    fig_feat.update_layout(title="Model Coefficients (Weights)", xaxis_title="Weight", yaxis_title="Feature")
+    st.plotly_chart(fig_feat, use_container_width=True)
 
 # ==============================================================================
 # TABS SETUP
 # ==============================================================================
 tab1, tab2, tab3 = st.tabs([
-    "Tab 1: Master Overview (All Models vs Actual)", 
-    "Tab 2: Historical Data Explorer (Dynamic Backtesting)", 
-    "Tab 3: Live Custom Prediction (Sandbox Mode)"
+    "Master Overview", 
+    "Historical Date Explorer", 
+    "Live Sandbox (What-If)"
 ])
 
 # ==============================================================================
@@ -112,8 +130,13 @@ tab1, tab2, tab3 = st.tabs([
 # ==============================================================================
 with tab1:
     st.subheader("Master Overview (All Models vs Actual)")
+    st.info("Notice: The historical data has natural gaps between weekends and holidays (no trading data).")
+    
+    with st.expander("🔍 Interactive Data Explorer & Filtering (Raw Data)"):
+        st.write("Explore the dataset interactively. You can sort columns, filter values, and analyze the data.")
+        st.dataframe(df_test, use_container_width=True, hide_index=True)
+        
     st.write("A 'big picture' view of the entire test dataset (2023 - 2026).")
-    st.info("Note: Currently only Ridge Regression is plotted. Other models (XGBoost, TCN, etc.) will be added to this graph in Future Development.")
     
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Actual_Price'], mode='lines', name='Actual Price', line=dict(color='blue')))
@@ -241,7 +264,6 @@ with tab2:
                         delta=f"{pred_price - actual_price:,.2f} (Error)",
                         delta_color="off"
                     )
-                    
                 with mcol2:
                     st.metric(
                         label="Exact Change % (Actual vs Predicted)",
@@ -254,12 +276,23 @@ with tab2:
             mask = (df_test['Date'].dt.date >= start_date) & (df_test['Date'].dt.date <= end_date)
             df_range = df_test[mask].copy()
             
-            if len(df_range) > 0:
-                # Cumulative return is prod(1 + ret) - 1
+            if not df_range.empty:
+                st.markdown(f"### Range Analysis ({start_date} to {end_date})")
+                
+                # --- NEW: Show Price Graph in Date Range ---
+                st.markdown("#### Price Forecast in Selected Range")
+                fig_price_range = go.Figure()
+                fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color='blue')))
+                fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
+                fig_price_range.update_layout(hovermode="x unified", dragmode="pan")
+                st.plotly_chart(fig_price_range, use_container_width=True)
+                # ------------------------------------------
+
+                st.markdown("#### Cumulative Return in Selected Range")
+                
+                # Calculate relative cumulative return from the start of the selected period
                 df_range['Cum_Actual_Return'] = (1 + df_range['Actual_Return_%']/100).cumprod() - 1
                 df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
-                
-                st.markdown(f"### Cumulative Return from {start_date} to {end_date}")
                 
                 fig_cum = go.Figure()
                 fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
