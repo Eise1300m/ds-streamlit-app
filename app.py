@@ -22,8 +22,11 @@ st.divider()
 def load_real_data():
     try:
         import joblib
+        import os
         import model_architecture
         import __main__
+        
+        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
         
         # Bind the custom classes to __main__ so joblib can successfully unpickle them
         __main__.EnsembleModel = model_architecture.EnsembleModel
@@ -31,15 +34,20 @@ def load_real_data():
         __main__.TemporalBlock = model_architecture.TemporalBlock
         __main__.preprocess_for_tcn = model_architecture.preprocess_for_tcn
         
-        model = joblib.load('Model_PKL/ridge_model.pkl')
+        model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ridge_model.pkl'))
         try:
-            ensemble_model = joblib.load('Model_PKL/ensemble_model.pkl')
+            ensemble_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ensemble_model.pkl'))
         except Exception as e:
             ensemble_model = None
             st.warning(f"Could not load Ensemble Model: {e}")
-        X_scaled = pd.read_csv('train_test_dataset/X_test_trans_scaled.csv')
-        X_raw = pd.read_csv('train_test_dataset/X_test_raw.csv')
-        y_test = pd.read_csv('train_test_dataset/y_test.csv')
+            
+        X_scaled = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_trans_scaled.csv'))
+        X_raw = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_raw.csv'))
+        y_test = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_test.csv'))
+        
+        X_train_scaled = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_trans_scaled.csv'))
+        X_train_raw = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_raw.csv'))
+        y_train = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_train.csv'))
         
         preds = model.predict(X_scaled)
         
