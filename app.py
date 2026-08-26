@@ -128,20 +128,40 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             corr_df = X_train_scaled.copy()
             title_text = "Toolbox B Correlation Heatmap"
             
-        # Calculate correlation matrix using selected Training Data
+        # Add a multiselect for filtering variables
         corr_df['Target_Return'] = y_train_df['Exact_Return'].values
-        corr_matrix = corr_df.corr().round(2)
         
-        fig_heat = px.imshow(
-            corr_matrix, 
-            text_auto=True, 
-            aspect="auto",
-            color_continuous_scale='RdBu',
-            zmin=-1, zmax=1,
-            title=title_text
+        all_vars = list(corr_df.columns)
+        selected_vars = st.multiselect(
+            "Select Variables to Include in Heatmap:", 
+            options=all_vars, 
+            default=all_vars,
+            key="heatmap_vars"
         )
-        fig_heat.update_layout(height=600)
-        st.plotly_chart(fig_heat, use_container_width=True)
+        
+        if len(selected_vars) < 2:
+            st.warning("Please select at least 2 variables to generate a correlation heatmap.")
+        else:
+            # Calculate correlation matrix using selected variables
+            corr_matrix = corr_df[selected_vars].corr().round(2)
+            
+            fig_heat = px.imshow(
+                corr_matrix, 
+                text_auto=True, 
+                aspect="auto",
+                color_continuous_scale='RdBu',
+                zmin=-1, zmax=1,
+                title=title_text
+            )
+            fig_heat.update_layout(height=600)
+            st.plotly_chart(
+                fig_heat, 
+                use_container_width=True,
+                config={
+                    'displaylogo': False,
+                    'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'select2d', 'lasso2d', 'zoomIn2d', 'zoomOut2d', 'autoScale2d', 'resetScale2d']
+                }
+            )
         
     with feat_tab2:
         st.subheader("Category 2: Native Model Weights")
