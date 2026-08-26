@@ -69,7 +69,7 @@ df_test, dummy_mae, dummy_rmse, dummy_da, ridge_coefs = load_real_data()
 models_list = [
     "Ridge Regression",
     "XGBoost",
-    "TCN",
+    "Ensemble Model: XGBoost + TCN",
     "Support Vector Regression (SVR)",
     "Multilayer Perceptron (MLP)",
     "LSTM"
@@ -78,7 +78,7 @@ models_list = [
 # ==============================================================================
 # 1. GLOBAL HEADER: MODEL LEADERBOARD
 # ==============================================================================
-st.markdown("## Model Leaderboard 🔗", unsafe_allow_html=True)
+st.markdown("## Model Leaderboard")
 
 leaderboard_data = []
 for m in models_list:
@@ -102,7 +102,7 @@ for m in models_list:
 # Display Leaderboard
 st.dataframe(pd.DataFrame(leaderboard_data), use_container_width=True, hide_index=True)
 
-with st.expander("🔗 Click to View More About Model: Feature Importance Visualizations (Requirement 3)"):
+with st.expander("Click to View More About Model: Feature Importance Visualizations"):
     st.subheader("Feature Importance (Ridge Regression)")
     st.write("This chart visualizes the mathematical weights (coefficients) assigned to each feature by the Ridge Regression model. Features with larger absolute values have a stronger impact on the prediction.")
     
@@ -111,7 +111,7 @@ with st.expander("🔗 Click to View More About Model: Feature Importance Visual
         x=ridge_coefs,
         y=features,
         orientation='h',
-        marker_color=['green' if val > 0 else 'red' for val in ridge_coefs]
+        marker_color=['green' if val > 0 else 'orange' for val in ridge_coefs]
     ))
     fig_feat.update_layout(title="Model Coefficients (Weights)", xaxis_title="Weight", yaxis_title="Feature")
     st.plotly_chart(fig_feat, use_container_width=True)
@@ -119,85 +119,22 @@ with st.expander("🔗 Click to View More About Model: Feature Importance Visual
 # ==============================================================================
 # TABS SETUP
 # ==============================================================================
-tab1, tab2, tab3 = st.tabs([
-    "Master Overview", 
-    "Historical Date Explorer", 
+tab1, tab2 = st.tabs([
+    "Master Overview & Explorer", 
     "Live Sandbox (What-If)"
 ])
 
 # ==============================================================================
-# TAB 1: MASTER OVERVIEW
+# TAB 1: MASTER OVERVIEW & EXPLORER
 # ==============================================================================
 with tab1:
-    st.subheader("Master Overview (All Models vs Actual)")
+    st.subheader("Master Overview & Historical Data Explorer")
     st.info("Notice: The historical data has natural gaps between weekends and holidays (no trading data).")
     
-    with st.expander("🔍 Interactive Data Explorer & Filtering (Raw Data)"):
+    with st.expander("Interactive Data Explorer & Filtering (Raw Data)"):
         st.write("Explore the dataset interactively. You can sort columns, filter values, and analyze the data.")
         st.dataframe(df_test, use_container_width=True, hide_index=True)
         
-    st.write("A 'big picture' view of the entire test dataset (2023 - 2026).")
-    
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Actual_Price'], mode='lines', name='Actual Price', line=dict(color='blue')))
-    fig.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
-    
-    fig.update_layout(
-        title="Actual Price vs Model Predicted Prices",
-        xaxis_title="Date",
-        yaxis_title="Price (₹)",
-        hovermode="x unified",
-        dragmode="pan",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    fig.update_xaxes(tickformat="%Y-%m-%d")
-    
-    st.plotly_chart(
-        fig, 
-        use_container_width=True, 
-        config={
-            'displaylogo': False,
-            'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
-            'scrollZoom': True
-        }
-    )
-    
-    st.markdown("---")
-    st.subheader("Cumulative Return (All Models vs Actual)")
-    
-    df_test['Cum_Actual'] = (1 + df_test['Actual_Return_%']/100).cumprod() - 1
-    df_test['Cum_Ridge'] = (1 + df_test['Ridge_Pred_Return_%']/100).cumprod() - 1
-    
-    fig2 = go.Figure()
-    fig2.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Cum_Actual'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
-    fig2.add_trace(go.Scatter(x=df_test['Date'], y=df_test['Cum_Ridge'] * 100, mode='lines', name='Ridge Predicted', line=dict(color='green', dash='dash')))
-    
-    fig2.update_layout(
-        title="Cumulative Return (%) over Test Set",
-        xaxis_title="Date",
-        yaxis_title="Cumulative Return (%)",
-        hovermode="x unified",
-        dragmode="pan",
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-    )
-    fig2.update_xaxes(tickformat="%Y-%m-%d")
-    
-    st.plotly_chart(
-        fig2, 
-        use_container_width=True, 
-        config={
-            'displaylogo': False,
-            'modeBarButtonsToRemove': ['zoomIn2d', 'zoomOut2d', 'autoScale2d'],
-            'scrollZoom': True
-        }
-    )
-
-
-# ==============================================================================
-# TAB 2: HISTORICAL DATA EXPLORER
-# ==============================================================================
-with tab2:
-    st.subheader("Historical Data Explorer (Dynamic Backtesting)")
     st.write("Zoom in on specific historical periods to see how models performed.")
     
     col1, col2 = st.columns([1, 1])
@@ -344,9 +281,9 @@ with tab2:
             st.warning("Please select at least one model to view results.")
 
 # ==============================================================================
-# TAB 3: LIVE CUSTOM PREDICTION (SANDBOX MODE)
+# TAB 2: LIVE CUSTOM PREDICTION (SANDBOX MODE)
 # ==============================================================================
-with tab3:
+with tab2:
     st.subheader("Live Custom Prediction (Sandbox Mode)")
     st.write("Pure 'what-if' exploration. Manually input yesterday's data to predict tomorrow's return (no ground truth).")
     
