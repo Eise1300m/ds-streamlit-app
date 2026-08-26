@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from data_loader import load_all
 
 # ==============================================================================
 # PAGE SETUP
@@ -16,102 +17,34 @@ st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
 # ==============================================================================
-# DUMMY DATA SETUP (FOR UI LAYOUT PREVIEW)
+# DATA & MODEL LOADING
+# All heavy lifting is in data_loader.py. Here we just call it once, cache it,
+# and unpack the result into named variables for the rest of the UI.
 # ==============================================================================
 @st.cache_data
-def load_real_data():
-    try:
-        import joblib
-        import os
-        import model_architecture
-        import __main__
-        
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        
-        # Bind the custom classes to __main__ so joblib can successfully unpickle them
-        __main__.EnsembleModel = model_architecture.EnsembleModel
-        __main__.TCN = model_architecture.TCN
-        __main__.TemporalBlock = model_architecture.TemporalBlock
-        __main__.preprocess_for_tcn = model_architecture.preprocess_for_tcn
-        
-        model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ridge_model.pkl'))
-        try:
-            xgb_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'xgboost_tuned.pkl'))
-        except Exception as e:
-            xgb_model = None
-            st.warning(f"Could not load XGBoost Model: {e}")
-        try:
-            ensemble_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ensemble_model.pkl'))
-        except Exception as e:
-            ensemble_model = None
-            st.warning(f"Could not load Ensemble Model: {e}")
-            
-        X_scaled = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_trans_scaled.csv'))
-        X_raw = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_raw.csv'))
-        y_test = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_test.csv'))
-        
-        X_train_scaled = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_trans_scaled.csv'))
-        X_train_raw = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_raw.csv'))
-        y_train = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_train.csv'))
-        
-        preds = model.predict(X_scaled)
-        
-        n = len(X_raw)
-        # Generate fake dates since the CSV doesn't have a Date column
-        dates = pd.date_range(end=pd.Timestamp('2026-01-01'), periods=n, freq='B')
-        
-        # Calculate prices based on Lag1 Price and the Return
-        # Assuming y_test['Exact_Return'] is in percentage terms
-        actual_returns = y_test['Exact_Return'].values
-        actual_prices = X_raw['Price_Lag1'].values * (1 + actual_returns / 100)
-        
-        ridge_returns = preds.flatten()
-        ridge_prices = X_raw['Price_Lag1'].values * (1 + ridge_returns / 100)
-        
-        df = pd.DataFrame({
-            "Date": dates,
-            "Actual_Price": actual_prices,
-            "Actual_Return_%": actual_returns,
-            "Volume": X_raw['Volume_Lag1'].values,
-            "Vol_7d": X_raw['Vol_7d'].values,
-            "Vol_30d": X_raw['Vol_30d'].values,
-            "Is_Anomaly": X_raw['Is_Anomaly'].values,
-            "Ridge_Pred_Price": ridge_prices,
-            "Ridge_Pred_Return_%": ridge_returns
-        })
-        
-        # Generate XGBoost Predictions if model loaded successfully
-        if xgb_model is not None:
-            xgb_preds = xgb_model.predict(X_raw)
-            xgb_returns = xgb_preds.flatten()
-            xgb_prices = X_raw['Price_Lag1'].values * (1 + xgb_returns / 100)
-            df["XGBoost_Pred_Price"] = xgb_prices
-            df["XGBoost_Pred_Return_%"] = xgb_returns
-        
-        # Generate Ensemble Predictions if model loaded successfully
-        if ensemble_model is not None:
-            seq_len = ensemble_model.seq_len
-            # Combine the end of training data with test data to provide the full 30-day sequence context
-            context_raw = pd.concat([X_train_raw.iloc[-seq_len:], X_raw])
-            
-            ensemble_returns = ensemble_model.predict(context_raw)
-            ensemble_prices = X_raw['Price_Lag1'].values * (1 + ensemble_returns / 100)
-            
-            df["Ensemble Model: XGBoost + TCN_Pred_Price"] = ensemble_prices
-            df["Ensemble Model: XGBoost + TCN_Pred_Return_%"] = ensemble_returns
-        
-        # Get model coefficients for feature importance
-        coefs = model.coef_
-        if len(coefs.shape) > 1:
-            coefs = coefs.flatten()
-        preprocessors = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'preprocessors.pkl'))
-        
-        return df, coefs, X_scaled, X_raw, y_test, X_train_scaled, X_train_raw, y_train, model, xgb_model, ensemble_model, preprocessors
-    except Exception as e:
-        st.error(f"Failed to load live data: {e}")
-        st.stop()
+def _cached_load():
+    """Thin Streamlit cache wrapper around data_loader.load_all()."""
+    return load_all()
 
-df_test, ridge_coefs, X_test_scaled, X_test_raw, y_test_df, X_train_scaled, X_train_raw, y_train_df, ridge_model, xgb_model, ensemble_model, preprocessors = load_real_data()
+try:
+    payload = _cached_load()
+except Exception as e:
+    st.error(f"Failed to load live data: {e}")
+    st.stop()
+
+# Unpack payload into named variables used throughout the UI
+df_test        = payload["df"]
+ridge_coefs    = payload["ridge_coefs"]
+X_test_scaled  = payload["X_test_scaled"]
+X_test_raw     = payload["X_test_raw"]
+y_test_df      = payload["y_test_df"]
+X_train_scaled = payload["X_train_scaled"]
+X_train_raw    = payload["X_train_raw"]
+y_train_df     = payload["y_train_df"]
+ridge_model    = payload["ridge_model"]
+xgb_model      = payload["xgb_model"]
+ensemble_model = payload["ensemble_model"]
+preprocessors  = payload["preprocessors"]
 
 models_list = [
     "Ridge Regression",
