@@ -1,101 +1,77 @@
 """
 data_loader.py
 ==============
-Responsible for all data ingestion, model loading, and pre-computation of
-predictions. app.py calls load_all() once at startup and receives everything
-it needs via a clean dictionary payload.
+Orchestrator: calls models/loader.py to load all raw objects, then delegates
+batch predictions to each model module. Returns a single dict payload
+consumed by app.py.
 
-Separating this logic from app.py keeps the UI file focused purely on display,
-and makes it easy to debug data/model issues in isolation.
+File layout
+-----------
+app.py                  ← Display only
+data_loader.py          ← Orchestration (this file)
+models/
+  loader.py             ← joblib loading + CSV reading
+  ridge.py              ← Ridge inference
+  xgboost_model.py      ← XGBoost inference
+  ensemble.py           ← Ensemble (XGBoost + TCN) inference
+model_architecture.py   ← Custom class definitions for unpickling
 """
 
-import os
 import pandas as pd
 import numpy as np
-import joblib
+
+from models.loader       import load_models, load_datasets
+from models.ridge        import predict_batch as ridge_batch
+from models.xgboost_model import predict_batch as xgb_batch
+from models.ensemble     import predict_batch as ens_batch
 
 
 def load_all():
     """
-    Load all trained models and datasets, run batch predictions on the test
-    set, and return a structured dict.
+    Main entry point called by app.py.
 
     Returns
     -------
     dict with keys:
-        df              - Main test-set DataFrame with actual + predicted columns
-        ridge_coefs     - np.ndarray of Ridge Regression coefficients
-        X_test_scaled   - Scaled test features (Toolbox B)
-        X_test_raw      - Raw test features   (Toolbox A)
-        y_test_df       - y_test DataFrame (Exact_Return)
-        X_train_scaled  - Scaled train features (for heatmap)
-        X_train_raw     - Raw train features   (for heatmap)
-        y_train_df      - y_train DataFrame
-        ridge_model     - Loaded Ridge model object
-        xgb_model       - Loaded XGBoost model object (or None)
-        ensemble_model  - Loaded Ensemble model object (or None)
-        preprocessors   - Dict of fitted scalers/transformers
+        df              - Test-set DataFrame (actual + all model predictions)
+        ridge_coefs     - np.ndarray Ridge coefficients (for feature importance)
+        X_test_scaled   - Toolbox B scaled features
+        X_test_raw      - Toolbox A raw features
+        y_test_df       - y_test with Exact_Return column
+        X_train_scaled  - Toolbox B training features (for heatmap)
+        X_train_raw     - Toolbox A training features (for heatmap + Ensemble context)
+        y_train_df      - y_train
+        ridge_model     - Fitted Ridge model object
+        xgb_model       - Fitted XGBoost model object (or None)
+        ensemble_model  - Fitted Ensemble model object (or None)
+        preprocessors   - Dict of fitted scalers / transformers
     """
-    import model_architecture
-    import __main__
+    # ------------------------------------------------------------------
+    # 1. Load models and raw datasets from disk
+    # ------------------------------------------------------------------
+    models   = load_models()
+    datasets = load_datasets()
+
+    ridge_model    = models["ridge_model"]
+    xgb_model      = models["xgb_model"]
+    ensemble_model = models["ensemble_model"]
+    preprocessors  = models["preprocessors"]
+
+    X_test_scaled  = datasets["X_test_scaled"]
+    X_test_raw     = datasets["X_test_raw"]
+    y_test_df      = datasets["y_test_df"]
+    X_train_scaled = datasets["X_train_scaled"]
+    X_train_raw    = datasets["X_train_raw"]
+    y_train_df     = datasets["y_train_df"]
 
     # ------------------------------------------------------------------
-    # 1. Resolve base directory so paths work regardless of CWD
-    # ------------------------------------------------------------------
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-    # ------------------------------------------------------------------
-    # 2. Register custom classes in __main__ so joblib can unpickle them
-    # ------------------------------------------------------------------
-    __main__.EnsembleModel      = model_architecture.EnsembleModel
-    __main__.TCN                = model_architecture.TCN
-    __main__.TemporalBlock      = model_architecture.TemporalBlock
-    __main__.preprocess_for_tcn = model_architecture.preprocess_for_tcn
-
-    # ------------------------------------------------------------------
-    # 3. Load models (XGBoost and Ensemble are optional, graceful fallback)
-    # ------------------------------------------------------------------
-    ridge_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ridge_model.pkl'))
-
-    try:
-        xgb_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'xgboost_tuned.pkl'))
-    except Exception as e:
-        xgb_model = None
-        print(f"[data_loader] WARNING: Could not load XGBoost model: {e}")
-
-    try:
-        ensemble_model = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'ensemble_model.pkl'))
-    except Exception as e:
-        ensemble_model = None
-        print(f"[data_loader] WARNING: Could not load Ensemble model: {e}")
-
-    preprocessors = joblib.load(os.path.join(BASE_DIR, 'Model_PKL', 'preprocessors.pkl'))
-
-    # ------------------------------------------------------------------
-    # 4. Load datasets
-    # ------------------------------------------------------------------
-    X_test_scaled  = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_trans_scaled.csv'))
-    X_test_raw     = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_test_raw.csv'))
-    y_test_df      = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_test.csv'))
-
-    X_train_scaled = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_trans_scaled.csv'))
-    X_train_raw    = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'X_train_raw.csv'))
-    y_train_df     = pd.read_csv(os.path.join(BASE_DIR, 'train_test_dataset', 'y_train.csv'))
-
-    # ------------------------------------------------------------------
-    # 5. Generate dates (test CSVs do not include a Date column)
+    # 2. Build the master test DataFrame
     # ------------------------------------------------------------------
     n     = len(X_test_raw)
     dates = pd.date_range(end=pd.Timestamp('2026-01-01'), periods=n, freq='B')
 
-    # ------------------------------------------------------------------
-    # 6. Compute actual prices and Ridge predictions
-    # ------------------------------------------------------------------
     actual_returns = y_test_df['Exact_Return'].values
     actual_prices  = X_test_raw['Price_Lag1'].values * (1 + actual_returns / 100)
-
-    ridge_preds  = ridge_model.predict(X_test_scaled).flatten()
-    ridge_prices = X_test_raw['Price_Lag1'].values * (1 + ridge_preds / 100)
 
     df = pd.DataFrame({
         "Date":              dates,
@@ -105,33 +81,27 @@ def load_all():
         "Vol_7d":            X_test_raw['Vol_7d'].values,
         "Vol_30d":           X_test_raw['Vol_30d'].values,
         "Is_Anomaly":        X_test_raw['Is_Anomaly'].values,
-        "Ridge_Pred_Price":  ridge_prices,
-        "Ridge_Pred_Return_%": ridge_preds,
     })
 
     # ------------------------------------------------------------------
-    # 7. XGBoost batch predictions (Toolbox A, raw features)
+    # 3. Delegate batch predictions to each model module
     # ------------------------------------------------------------------
+    ridge_returns, ridge_prices = ridge_batch(ridge_model, X_test_scaled, X_test_raw)
+    df["Ridge_Pred_Return_%"] = ridge_returns
+    df["Ridge_Pred_Price"]    = ridge_prices
+
     if xgb_model is not None:
-        xgb_returns = xgb_model.predict(X_test_raw).flatten()
-        xgb_prices  = X_test_raw['Price_Lag1'].values * (1 + xgb_returns / 100)
-        df["XGBoost_Pred_Price"]    = xgb_prices
+        xgb_returns, xgb_prices = xgb_batch(xgb_model, X_test_raw)
         df["XGBoost_Pred_Return_%"] = xgb_returns
+        df["XGBoost_Pred_Price"]    = xgb_prices
 
-    # ------------------------------------------------------------------
-    # 8. Ensemble (XGBoost + TCN) batch predictions
-    #    Needs a 30-day sliding context from the end of the training set
-    # ------------------------------------------------------------------
     if ensemble_model is not None:
-        seq_len     = ensemble_model.seq_len
-        context_raw = pd.concat([X_train_raw.iloc[-seq_len:], X_test_raw])
-        ens_returns = ensemble_model.predict(context_raw)
-        ens_prices  = X_test_raw['Price_Lag1'].values * (1 + ens_returns / 100)
-        df["Ensemble Model: XGBoost + TCN_Pred_Price"]    = ens_prices
+        ens_returns, ens_prices = ens_batch(ensemble_model, X_train_raw, X_test_raw)
         df["Ensemble Model: XGBoost + TCN_Pred_Return_%"] = ens_returns
+        df["Ensemble Model: XGBoost + TCN_Pred_Price"]    = ens_prices
 
     # ------------------------------------------------------------------
-    # 9. Extract Ridge coefficients for feature importance visualisation
+    # 4. Extract Ridge coefficients for feature importance visualisation
     # ------------------------------------------------------------------
     ridge_coefs = ridge_model.coef_
     if len(ridge_coefs.shape) > 1:

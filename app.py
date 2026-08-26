@@ -4,6 +4,9 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from data_loader import load_all
+from models.ridge         import predict_sandbox as ridge_sandbox
+from models.xgboost_model import predict_sandbox as xgb_sandbox
+from models.ensemble      import predict_sandbox as ensemble_sandbox
 
 # ==============================================================================
 # PAGE SETUP
@@ -458,59 +461,28 @@ with tab2:
     st.markdown("### Prediction Results")
     
     if selected_model_tab3 == "Ridge Regression":
-        # Prepare real input array using the last row of X_test_scaled for the missing features
-        last_scaled_row = X_test_scaled.iloc[-1].copy()
-        
-        # Scale user inputs using preprocessors
-        log_price = np.log(sandbox_price)
-        price_scaled = (log_price - preprocessors['price_mean']) / preprocessors['price_std']
-        vol_scaled = preprocessors['pt_vol'].transform([[sandbox_volume]])[0,0]
-        ret_scaled = preprocessors['scaler_return'].transform([[sandbox_return]])[0,0]
-        
-        # Update the scaled row
-        last_scaled_row['Log_Price_Lag1'] = price_scaled
-        last_scaled_row['Yeo_Volume_Lag1'] = vol_scaled
-        last_scaled_row['Exact_Return_Lag1'] = ret_scaled
-        
-        # Predict using real Ridge model
-        sandbox_pred = ridge_model.predict(pd.DataFrame([last_scaled_row]))[0]
-        sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
-        
-        st.success(f"**Ridge Regression Predicted Exact Change:** {sandbox_pred:+.4f}%")
-        st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
+        pred_return, pred_price = ridge_sandbox(
+            ridge_model, X_test_scaled, preprocessors,
+            sandbox_price, sandbox_volume, sandbox_return
+        )
+        st.success(f"**Ridge Regression Predicted Exact Change:** {pred_return:+.4f}%")
+        st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{pred_price:,.2f}")
         
     elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
-        # Build a raw feature row from user inputs + last known test row for missing features
-        last_raw_row = X_test_raw.iloc[-1].copy()
-        last_raw_row['Price_Lag1'] = sandbox_price
-        last_raw_row['Volume_Lag1'] = sandbox_volume
-        last_raw_row['Exact_Return_Lag1'] = sandbox_return
-        
-        sandbox_pred = xgb_model.predict(pd.DataFrame([last_raw_row]))[0]
-        sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
-        
-        st.success(f"**XGBoost Predicted Exact Change:** {sandbox_pred:+.4f}%")
-        st.info(f"**XGBoost Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
+        pred_return, pred_price = xgb_sandbox(
+            xgb_model, X_test_raw,
+            sandbox_price, sandbox_volume, sandbox_return
+        )
+        st.success(f"**XGBoost Predicted Exact Change:** {pred_return:+.4f}%")
+        st.info(f"**XGBoost Predicted Next-Day Price:** ₹{pred_price:,.2f}")
         
     elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
-        # Prepare 30-day window using last 29 days of test set + 1 user simulated day
-        context_window = X_test_raw.iloc[-(ensemble_model.seq_len - 1):].copy()
-        
-        # Create user simulated row
-        sim_row = context_window.iloc[-1].copy()
-        sim_row['Price_Lag1'] = sandbox_price
-        sim_row['Volume_Lag1'] = sandbox_volume
-        sim_row['Exact_Return_Lag1'] = sandbox_return
-        
-        # Append simulated row to context
-        context_window = pd.concat([context_window, pd.DataFrame([sim_row])])
-        
-        # Predict using real Ensemble model
-        sandbox_pred = ensemble_model.predict(context_window)[0]
-        sandbox_pred_price = sandbox_price * (1 + sandbox_pred / 100)
-        
-        st.success(f"**Ensemble Model Predicted Exact Change:** {sandbox_pred:+.4f}%")
-        st.info(f"**Ensemble Model Predicted Next-Day Price:** ₹{sandbox_pred_price:,.2f}")
+        pred_return, pred_price = ensemble_sandbox(
+            ensemble_model, X_test_raw,
+            sandbox_price, sandbox_volume, sandbox_return
+        )
+        st.success(f"**Ensemble Model Predicted Exact Change:** {pred_return:+.4f}%")
+        st.info(f"**Ensemble Model Predicted Next-Day Price:** ₹{pred_price:,.2f}")
         
     else:
         st.warning(f"Live prediction for '{selected_model_tab3}' is currently under Future Development. Please select Ridge Regression, XGBoost, or Ensemble Model.")
