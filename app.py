@@ -237,8 +237,8 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
 st.markdown('<div class="section-banner interactive">🔍 Interactive Analysis Tools — Explore & Forecast</div>', unsafe_allow_html=True)
 
 tab1, tab2 = st.tabs([
-    "📈 Master Overview & Explorer",
-    "🔮 Live Next-Day Prediction"
+    "Master Overview & Explorer",
+    "Live Next-Day Prediction"
 ])
 
 # ==============================================================================
@@ -484,45 +484,80 @@ with tab1:
             st.warning("Please select at least one model to view results.")
 
 # ==============================================================================
-# TAB 2: LIVE CUSTOM PREDICTION 
+# TAB 2: LIVE CUSTOM PREDICTION
 # ==============================================================================
 with tab2:
-    st.subheader("Live Custom Next Day Prediction ")
-    st.write("Pure 'what-if' exploration. Manually input yesterday's data to predict tomorrow's return (no ground truth).")
-    
+    st.subheader("Live Custom Next-Day Prediction")
+    st.write("Input yesterday's market data and click **Run Prediction** to forecast tomorrow's return using the trained model.")
+
     col1, col2 = st.columns(2)
     with col1:
-        sandbox_price = st.number_input("Yesterday's Close Price (₹):", value=60000.0, step=500.0)
-        sandbox_return = st.number_input("Yesterday's Exact Return (%):", value=0.5, step=0.1)
-        sandbox_volume = st.number_input("Yesterday's Volume:", value=5000, step=500)
+        sandbox_price  = st.number_input("Yesterday's Close Price (₹):",  value=60000.0, step=500.0)
+        sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.5,     step=0.1)
+        sandbox_volume = st.number_input("Yesterday's Volume:",            value=5000,    step=500)
     with col2:
         selected_model_tab3 = st.selectbox("Select Model:", models_list, key="tab3_model")
-        
+        st.markdown("")
+        run_pred = st.button("▶ Run Prediction", type="primary", use_container_width=True)
+
+    st.divider()
     st.markdown("### Prediction Results")
-    
-    if selected_model_tab3 == "Ridge Regression":
-        pred_return, pred_price = ridge_sandbox(
-            ridge_model, X_test_scaled, preprocessors,
-            sandbox_price, sandbox_volume, sandbox_return
-        )
-        st.success(f"**Ridge Regression Predicted Exact Change:** {pred_return:+.4f}%")
-        st.info(f"**Ridge Regression Predicted Next-Day Price:** ₹{pred_price:,.2f}")
-        
-    elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
-        pred_return, pred_price = xgb_sandbox(
-            xgb_model, X_test_raw,
-            sandbox_price, sandbox_volume, sandbox_return
-        )
-        st.success(f"**XGBoost Predicted Exact Change:** {pred_return:+.4f}%")
-        st.info(f"**XGBoost Predicted Next-Day Price:** ₹{pred_price:,.2f}")
-        
-    elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
-        pred_return, pred_price = ensemble_sandbox(
-            ensemble_model, X_test_raw,
-            sandbox_price, sandbox_volume, sandbox_return
-        )
-        st.success(f"**Ensemble Model Predicted Exact Change:** {pred_return:+.4f}%")
-        st.info(f"**Ensemble Model Predicted Next-Day Price:** ₹{pred_price:,.2f}")
-        
-    else:
-        st.warning(f"Live prediction for '{selected_model_tab3}' is currently under Future Development. Please select Ridge Regression, XGBoost, or Ensemble Model.")
+
+    # Run inference only when the button is clicked
+    if run_pred:
+        if selected_model_tab3 == "Ridge Regression":
+            pred_return, pred_price = ridge_sandbox(
+                ridge_model, X_test_scaled, preprocessors,
+                sandbox_price, sandbox_volume, sandbox_return
+            )
+            st.session_state["pred_result"] = {
+                "model": "Ridge Regression",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
+        elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
+            pred_return, pred_price = xgb_sandbox(
+                xgb_model, X_test_raw,
+                sandbox_price, sandbox_volume, sandbox_return
+            )
+            st.session_state["pred_result"] = {
+                "model": "XGBoost",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
+        elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
+            pred_return, pred_price = ensemble_sandbox(
+                ensemble_model, X_test_raw,
+                sandbox_price, sandbox_volume, sandbox_return
+            )
+            st.session_state["pred_result"] = {
+                "model": "Ensemble Model: XGBoost + TCN",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
+        else:
+            st.session_state["pred_result"] = None
+            st.warning(f"Live prediction for **'{selected_model_tab3}'** is currently under Future Development. Please select Ridge Regression, XGBoost, or Ensemble Model.")
+
+    # Display the last stored result (persists across re-runs until new button press)
+    if "pred_result" in st.session_state and st.session_state["pred_result"] is not None:
+        res = st.session_state["pred_result"]
+        inp_price, inp_vol, inp_ret = res["inputs"]
+
+        # Input summary
+        st.caption(f"Inputs used — Price: ₹{inp_price:,.0f} | Volume: {inp_vol:,} | Return: {inp_ret:+.2f}%")
+
+        direction = "Upward" if res["ret"] > 0 else "Downward"
+        r_col1, r_col2, r_col3 = st.columns(3)
+        r_col1.metric("Model Used",          res["model"])
+        r_col2.metric("Predicted Change",    f"{res['ret']:+.4f}%",    direction, delta_color="off")
+        r_col3.metric("Predicted Next Price", f"₹{res['price']:,.2f}", delta_color="off")
+
+    elif "pred_result" not in st.session_state:
+        st.info("👆 Select a model, enter yesterday's data, and click **Run Prediction** to get started.")
