@@ -285,6 +285,28 @@ with tab1:
         )
     with col_m:
         selected_models_tab2 = st.multiselect("Select Model(s) to Evaluate:", models_list, default=["Ridge Regression"], key="tab2_models")
+        
+    with st.expander("🎨 Customize Graph Colors"):
+        st.write("Pick your favorite colors for the charts. Defaults avoid red and pink!")
+        col_c1, col_c2, col_c3, col_c4 = st.columns(4)
+        chart_colors = {}
+        with col_c1:
+            chart_colors["Actual Price"] = st.color_picker("Actual Market Data", "#1F77B4") # Blue
+            
+        default_colors = {
+            "Ridge Regression": "#2CA02C", # Green
+            "XGBoost": "#FF7F0E", # Orange (Replaced Red)
+            "Ensemble Model: XGBoost + TCN": "#9467BD", # Purple
+            "Support Vector Regression (SVR)": "#17BECF", # Cyan
+            "Multilayer Perceptron (MLP)": "#8C564B", # Brown
+            "LSTM": "#BCBD22" # Olive/Yellow-Green (Replaced Pink)
+        }
+        
+        cols = [col_c2, col_c3, col_c4]
+        for i, m in enumerate(selected_models_tab2):
+            with cols[i % 3]:
+                short_name = m if len(m) <= 15 else f"{m[:15]}..."
+                chart_colors[m] = st.color_picker(short_name, default_colors.get(m, "#000000"))
     
     # Process dates
     if isinstance(selected_dates, tuple):
@@ -376,14 +398,14 @@ with tab1:
                 # --- NEW: Show Price Graph in Date Range ---
                 st.markdown("#### Price Forecast in Selected Range")
                 fig_price_range = go.Figure()
-                fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color='blue')))
+                fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color=chart_colors["Actual Price"])))
                 
                 if "Ridge Regression" in selected_models_tab2:
-                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color='green', dash='dash')))
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Ridge_Pred_Price'], mode='lines', name='Ridge Predicted Price', line=dict(color=chart_colors["Ridge Regression"], dash='dash')))
                 if "XGBoost" in selected_models_tab2 and "XGBoost_Pred_Price" in df_range.columns:
-                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['XGBoost_Pred_Price'], mode='lines', name='XGBoost Predicted Price', line=dict(color='red', dash='dash')))
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['XGBoost_Pred_Price'], mode='lines', name='XGBoost Predicted Price', line=dict(color=chart_colors["XGBoost"], dash='dash')))
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
-                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color='orange', dash='dot')))
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"], dash='dot')))
                     
                 fig_price_range.update_layout(hovermode="x unified")
                 st.plotly_chart(
@@ -404,19 +426,19 @@ with tab1:
                 df_range['Cum_Actual_Return'] = (1 + df_range['Actual_Return_%']/100).cumprod() - 1
                 
                 fig_cum = go.Figure()
-                fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color='blue')))
+                fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color=chart_colors["Actual Price"])))
                 
                 if "Ridge Regression" in selected_models_tab2:
                     df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
-                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color='green')))
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color=chart_colors["Ridge Regression"])))
                 
                 if "XGBoost" in selected_models_tab2 and "XGBoost_Pred_Return_%" in df_range.columns:
                     df_range['Cum_XGB_Return'] = (1 + df_range['XGBoost_Pred_Return_%']/100).cumprod() - 1
-                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_XGB_Return'] * 100, mode='lines', name='XGBoost', line=dict(color='red')))
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_XGB_Return'] * 100, mode='lines', name='XGBoost', line=dict(color=chart_colors["XGBoost"])))
                     
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
                     df_range['Cum_Ens_Return'] = (1 + df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"]/100).cumprod() - 1
-                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ens_Return'] * 100, mode='lines', name='Ensemble (XGB+TCN)', line=dict(color='orange')))
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ens_Return'] * 100, mode='lines', name='Ensemble (XGB+TCN)', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"])))
 
                 
                 fig_cum.update_layout(
