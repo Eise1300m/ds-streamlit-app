@@ -89,24 +89,23 @@ models_list = [
 ]
 
 # ── SECTION 1: STATIC DASHBOARD OVERVIEW ─────────────────────────────────────
-st.markdown('<div class="section-banner">📊 Dashboard Overview — Model Performance Summary</div>', unsafe_allow_html=True)
+st.markdown('<div class="section-banner">Dashboard Overview — Model Performance Summary</div>', unsafe_allow_html=True)
 
 # Hardcoded true metrics from user
 leaderboard_data = [
-    {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%", "Status": "✅ Active"},
-    {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%", "Status": "✅ Active"},
-    {"Model": "Ridge Regression", "MAE": "0.6428", "RMSE": "0.9198", "Directional Accuracy": "57.12%", "Status": "✅ Active"},
-    {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%", "Status": "✅ Active"},
-    {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%", "Status": "✅ Active"},
-    {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%", "Status": "✅ Active"}
+    {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%"},
+    {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%"},
+    {"Model": "Ridge Regression", "MAE": "0.6428", "RMSE": "0.9198", "Directional Accuracy": "57.12%"},
+    {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%"},
+    {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%"},
+    {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%"}
 ]
 
 # Quick KPI row — best model highlights
 _kc1, _kc2, _kc3, _kc4 = st.columns(4)
-_kc1.metric("🏆 Best MAE", "0.6350", "Ensemble XGB+TCN", delta_color="off")
-_kc2.metric("🏆 Best RMSE", "0.9100", "Ensemble XGB+TCN", delta_color="off")
-_kc3.metric("🏆 Best Direction", "60.56%", "SVR", delta_color="off")
-_kc4.metric("📅 Test Period", "611 days", "2022 – 2026", delta_color="off")
+_kc1.metric("Best MAE", "0.6350", "Ensemble XGB+TCN", delta_color="off")
+_kc2.metric("Best RMSE", "0.9100", "Ensemble XGB+TCN", delta_color="off")
+_kc3.metric("Best Direction", "60.56%", "SVR", delta_color="off")
 st.markdown("")
 
 # Display Leaderboard
