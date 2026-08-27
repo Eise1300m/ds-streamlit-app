@@ -7,6 +7,7 @@ from data_loader import load_all
 from models.ridge         import predict_sandbox as ridge_sandbox
 from models.xgboost_model import predict_sandbox as xgb_sandbox
 from models.ensemble      import predict_sandbox as ensemble_sandbox
+from models.svr           import predict_sandbox as svr_sandbox
 
 # ==============================================================================
 # PAGE SETUP
@@ -77,6 +78,7 @@ y_train_df     = payload["y_train_df"]
 ridge_model    = payload["ridge_model"]
 xgb_model      = payload["xgb_model"]
 ensemble_model = payload["ensemble_model"]
+svr_model      = payload.get("svr_model")
 preprocessors  = payload["preprocessors"]
 
 models_list = [
@@ -301,7 +303,7 @@ with tab1:
         
         # Filter table columns based on selected models
         display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume", "Vol_7d", "Vol_30d", "Is_Anomaly"]
-        active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN"]
+        active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)"]
         for m in selected_models_tab2:
             if m == "Ridge Regression":
                 display_cols.extend(["Ridge_Pred_Price", "Ridge_Pred_Return_%"])
@@ -309,6 +311,8 @@ with tab1:
                 display_cols.extend(["XGBoost_Pred_Price", "XGBoost_Pred_Return_%"])
             elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
                 display_cols.extend(["Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"])
+            elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Price" in df_range.columns:
+                display_cols.extend(["Support Vector Regression (SVR)_Pred_Price", "Support Vector Regression (SVR)_Pred_Return_%"])
             else:
                 # Add dummy columns for unfinished models so the user sees them in the table
                 df_range[f"{m}_Pred_Price"] = "TBD"
@@ -320,7 +324,7 @@ with tab1:
     st.write("Zoom in on specific historical periods to see how models performed.")
     
     # Check for unfinished models warning
-    active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN"]
+    active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)"]
     for sm in selected_models_tab2:
         if sm not in active_models:
             st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
@@ -374,6 +378,7 @@ with tab1:
                 
                 # --- Price Forecast chart ---
                 st.markdown("#### Price Forecast in Selected Range")
+                st.caption("ℹ️ **Methodology Note:** The Price Forecast chart evaluates **1-Step-Ahead Daily Predictions** ($P_t = P_{t-1, \\text{actual}} \\times (1 + \\hat{r}_t)$). Each daily forecast resets to yesterday's real market close price, matching real-world daily trading conditions. For long-term compounded return trajectories without daily resets, refer to the **Cumulative Return** chart below.")
                 fig_price_range = go.Figure()
                 fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color=chart_colors["Actual Price"])))
                 
@@ -383,6 +388,8 @@ with tab1:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['XGBoost_Pred_Price'], mode='lines', name='XGBoost Predicted Price', line=dict(color=chart_colors["XGBoost"], dash='dash')))
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"], dash='dot')))
+                if "Support Vector Regression (SVR)" in selected_models_tab2 and "Support Vector Regression (SVR)_Pred_Price" in df_range.columns:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Support Vector Regression (SVR)_Pred_Price"], mode='lines', name='SVR Predicted Price', line=dict(color=chart_colors["Support Vector Regression (SVR)"], dash='dashdot')))
                     
                 fig_price_range.update_layout(hovermode="x unified")
                 st.plotly_chart(
@@ -415,6 +422,10 @@ with tab1:
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
                     df_range['Cum_Ens_Return'] = (1 + df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"]/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ens_Return'] * 100, mode='lines', name='Ensemble (XGB+TCN)', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"])))
+
+                if "Support Vector Regression (SVR)" in selected_models_tab2 and "Support Vector Regression (SVR)_Pred_Return_%" in df_range.columns:
+                    df_range['Cum_SVR_Return'] = (1 + df_range["Support Vector Regression (SVR)_Pred_Return_%"]/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_SVR_Return'] * 100, mode='lines', name='SVR', line=dict(color=chart_colors["Support Vector Regression (SVR)"])))
 
                 
                 fig_cum.update_layout(
@@ -463,6 +474,16 @@ with tab1:
                         avg_pred_chg = df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"].mean()
                         avg_price_err = (df_range["Ensemble Model: XGBoost + TCN_Pred_Price"] - df_range['Actual_Price']).mean()
                         trend = "Upward" if df_range['Cum_Ens_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                        })
+                    elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Return_%" in df_range.columns:
+                        avg_pred_chg = df_range["Support Vector Regression (SVR)_Pred_Return_%"].mean()
+                        avg_price_err = (df_range["Support Vector Regression (SVR)_Pred_Price"] - df_range['Actual_Price']).mean()
+                        trend = "Upward" if df_range['Cum_SVR_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
@@ -536,6 +557,18 @@ with tab2:
             )
             st.session_state["pred_result"] = {
                 "model": "Ensemble Model: XGBoost + TCN",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
+        elif selected_model_tab3 == "Support Vector Regression (SVR)" and svr_model is not None:
+            pred_return, pred_price = svr_sandbox(
+                svr_model, X_test_scaled, preprocessors,
+                sandbox_price, sandbox_volume, sandbox_return
+            )
+            st.session_state["pred_result"] = {
+                "model": "Support Vector Regression (SVR)",
                 "ret": pred_return,
                 "price": pred_price,
                 "inputs": (sandbox_price, sandbox_volume, sandbox_return),

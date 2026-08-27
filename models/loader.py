@@ -63,10 +63,17 @@ def load_models():
         ensemble_model = None
         print(f"[models/loader] WARNING: Ensemble not loaded: {e}")
 
+    try:
+        svr_model = joblib.load(pkl('svr_model.pkl'))
+    except Exception as e:
+        svr_model = None
+        print(f"[models/loader] WARNING: SVR not loaded: {e}")
+
     return {
         "ridge_model":    ridge_model,
         "xgb_model":      xgb_model,
         "ensemble_model": ensemble_model,
+        "svr_model":      svr_model,
         "preprocessors":  preprocessors,
     }
 

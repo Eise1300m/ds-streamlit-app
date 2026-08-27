@@ -24,6 +24,7 @@ from models.loader       import load_models, load_datasets
 from models.ridge        import predict_batch as ridge_batch
 from models.xgboost_model import predict_batch as xgb_batch
 from models.ensemble     import predict_batch as ens_batch
+from models.svr          import predict_batch as svr_batch
 
 
 def load_all():
@@ -44,6 +45,7 @@ def load_all():
         ridge_model     - Fitted Ridge model object
         xgb_model       - Fitted XGBoost model object (or None)
         ensemble_model  - Fitted Ensemble model object (or None)
+        svr_model       - Fitted SVR model object (or None)
         preprocessors   - Dict of fitted scalers / transformers
     """
     # ------------------------------------------------------------------
@@ -55,6 +57,7 @@ def load_all():
     ridge_model    = models["ridge_model"]
     xgb_model      = models["xgb_model"]
     ensemble_model = models["ensemble_model"]
+    svr_model      = models["svr_model"]
     preprocessors  = models["preprocessors"]
 
     X_test_scaled  = datasets["X_test_scaled"]
@@ -100,6 +103,11 @@ def load_all():
         df["Ensemble Model: XGBoost + TCN_Pred_Return_%"] = ens_returns
         df["Ensemble Model: XGBoost + TCN_Pred_Price"]    = ens_prices
 
+    if svr_model is not None:
+        svr_returns, svr_prices = svr_batch(svr_model, X_test_scaled, X_test_raw)
+        df["Support Vector Regression (SVR)_Pred_Return_%"] = svr_returns
+        df["Support Vector Regression (SVR)_Pred_Price"]    = svr_prices
+
     # ------------------------------------------------------------------
     # 4. Extract Ridge coefficients for feature importance visualisation
     # ------------------------------------------------------------------
@@ -119,5 +127,6 @@ def load_all():
         "ridge_model":    ridge_model,
         "xgb_model":      xgb_model,
         "ensemble_model": ensemble_model,
+        "svr_model":      svr_model,
         "preprocessors":  preprocessors,
     }
