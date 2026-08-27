@@ -9,9 +9,7 @@ from models.xgboost_model import predict_sandbox as xgb_sandbox
 from models.ensemble      import predict_sandbox as ensemble_sandbox
 from models.svr           import predict_sandbox as svr_sandbox
 
-# ==============================================================================
 # PAGE SETUP
-# ==============================================================================
 st.set_page_config(
     page_title="Gold Forecaster",
     layout="wide"
@@ -50,11 +48,7 @@ st.markdown("""
 st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
-# ==============================================================================
 # DATA & MODEL LOADING
-# All heavy lifting is in data_loader.py. Here we just call it once, cache it,
-# and unpack the result into named variables for the rest of the UI.
-# ==============================================================================
 @st.cache_data
 def _cached_load():
     """Thin Streamlit cache wrapper around data_loader.load_all()."""
@@ -243,9 +237,7 @@ tab1, tab2 = st.tabs([
     "Live Next-Day Prediction"
 ])
 
-# ==============================================================================
 # TAB 1: MASTER OVERVIEW & EXPLORER
-# ==============================================================================
 with tab1:
     st.subheader("Master Overview & Historical Data Explorer")
     st.info("Notice: The historical data has natural gaps between weekends and holidays (no trading data).")
@@ -514,9 +506,7 @@ with tab1:
         if not selected_models_tab2:
             st.warning("Please select at least one model to view results.")
 
-# ==============================================================================
 # TAB 2: LIVE CUSTOM PREDICTION
-# ==============================================================================
 with tab2:
     st.subheader("Live Custom Next-Day Prediction")
     st.write("Input yesterday's market data and click **Run Prediction** to forecast tomorrow's return using the trained model.")

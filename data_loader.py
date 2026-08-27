@@ -1,20 +1,6 @@
 """
 data_loader.py
-==============
-Orchestrator: calls models/loader.py to load all raw objects, then delegates
-batch predictions to each model module. Returns a single dict payload
-consumed by app.py.
-
-File layout
------------
-app.py                  ← Display only
-data_loader.py          ← Orchestration (this file)
-models/
-  loader.py             ← joblib loading + CSV reading
-  ridge.py              ← Ridge inference
-  xgboost_model.py      ← XGBoost inference
-  ensemble.py           ← Ensemble (XGBoost + TCN) inference
-model_architecture.py   ← Custom class definitions for unpickling
+Orchestrates model and data loading, runs batch predictions, and returns a unified payload.
 """
 
 import pandas as pd
@@ -48,9 +34,7 @@ def load_all():
         svr_model       - Fitted SVR model object (or None)
         preprocessors   - Dict of fitted scalers / transformers
     """
-    # ------------------------------------------------------------------
-    # 1. Load models and raw datasets from disk
-    # ------------------------------------------------------------------
+    # 1. Load objects from disk
     models   = load_models()
     datasets = load_datasets()
 
@@ -67,9 +51,7 @@ def load_all():
     X_train_raw    = datasets["X_train_raw"]
     y_train_df     = datasets["y_train_df"]
 
-    # ------------------------------------------------------------------
-    # 2. Build the master test DataFrame
-    # ------------------------------------------------------------------
+    # 2. Build test DataFrame
     n     = len(X_test_raw)
     dates = pd.date_range(end=pd.Timestamp('2026-01-01'), periods=n, freq='B')
 
@@ -86,9 +68,7 @@ def load_all():
         "Is_Anomaly":        X_test_raw['Is_Anomaly'].values,
     })
 
-    # ------------------------------------------------------------------
-    # 3. Delegate batch predictions to each model module
-    # ------------------------------------------------------------------
+    # 3. Run batch predictions
     ridge_returns, ridge_prices = ridge_batch(ridge_model, X_test_scaled, X_test_raw)
     df["Ridge_Pred_Return_%"] = ridge_returns
     df["Ridge_Pred_Price"]    = ridge_prices
@@ -108,9 +88,7 @@ def load_all():
         df["Support Vector Regression (SVR)_Pred_Return_%"] = svr_returns
         df["Support Vector Regression (SVR)_Pred_Price"]    = svr_prices
 
-    # ------------------------------------------------------------------
-    # 4. Extract Ridge coefficients for feature importance visualisation
-    # ------------------------------------------------------------------
+    # 4. Extract Ridge coefficients
     ridge_coefs = ridge_model.coef_
     if len(ridge_coefs.shape) > 1:
         ridge_coefs = ridge_coefs.flatten()
