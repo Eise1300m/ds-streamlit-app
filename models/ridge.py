@@ -32,18 +32,10 @@ def predict_batch(ridge_model, X_test_scaled, X_test_raw):
 
 
 def predict_sandbox(ridge_model, X_test_scaled, preprocessors,
-                    sandbox_price, sandbox_volume, sandbox_return):
+                    sandbox_price, sandbox_volume, sandbox_return,
+                    sandbox_vol7d, sandbox_vol30d, sandbox_anomaly):
     """
     Single-row Ridge prediction from manually entered user inputs.
-
-    Scales price, volume, and return using the saved preprocessors,
-    injects them into the last row of the test set (for the remaining
-    features like Vol_7d, Vol_30d), then runs ridge_model.predict().
-
-    Returns
-    -------
-    pred_return : float — predicted exact return (%)
-    pred_price  : float — predicted next-day price
     """
     last_scaled_row = X_test_scaled.iloc[-1].copy()
 
@@ -51,10 +43,15 @@ def predict_sandbox(ridge_model, X_test_scaled, preprocessors,
     price_scaled = (log_price - preprocessors['price_mean']) / preprocessors['price_std']
     vol_scaled   = preprocessors['pt_vol'].transform([[sandbox_volume]])[0, 0]
     ret_scaled   = preprocessors['scaler_return'].transform([[sandbox_return]])[0, 0]
+    vol7d_scaled = preprocessors['pt_vol7'].transform([[sandbox_vol7d]])[0, 0]
+    vol30d_scaled = preprocessors['pt_vol30'].transform([[sandbox_vol30d]])[0, 0]
 
     last_scaled_row['Log_Price_Lag1']    = price_scaled
     last_scaled_row['Yeo_Volume_Lag1']   = vol_scaled
     last_scaled_row['Exact_Return_Lag1'] = ret_scaled
+    last_scaled_row['Yeo_Vol_7d']        = vol7d_scaled
+    last_scaled_row['Yeo_Vol_30d']       = vol30d_scaled
+    last_scaled_row['Is_Anomaly']        = sandbox_anomaly
 
     pred_return = ridge_model.predict(pd.DataFrame([last_scaled_row]))[0]
     pred_price  = sandbox_price * (1 + pred_return / 100)

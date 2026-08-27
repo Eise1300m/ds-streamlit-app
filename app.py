@@ -49,7 +49,7 @@ st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
 # DATA & MODEL LOADING
-@st.cache_data
+@st.cache_resource
 def _cached_load():
     """Thin Streamlit cache wrapper around data_loader.load_all()."""
     return load_all()
@@ -91,7 +91,7 @@ st.markdown('<div class="section-banner">Dashboard Overview — Model Performanc
 leaderboard_data = [
     {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%"},
     {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%"},
-    {"Model": "Ridge Regression", "MAE": "0.6428", "RMSE": "0.9198", "Directional Accuracy": "57.12%"},
+    {"Model": "Ridge Regression", "MAE": "0.6419", "RMSE": "0.9186", "Directional Accuracy": "57.61%"},
     {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%"},
     {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%"},
     {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%"}
@@ -517,8 +517,17 @@ with tab2:
         sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.5,     step=0.1)
         sandbox_volume = st.number_input("Yesterday's Volume:",            value=5000,    step=500)
     with col2:
+        sandbox_vol7d  = st.number_input("7-Day Avg Volume (Vol_7d):",     value=5000.0,  step=100.0)
+        sandbox_vol30d = st.number_input("30-Day Avg Volume (Vol_30d):",   value=5000.0,  step=100.0)
+        sandbox_anomaly = st.checkbox("Volume Anomaly (Is_Anomaly)?",      value=False)
+        sandbox_anomaly_int = 1 if sandbox_anomaly else 0
+
+    st.markdown("---")
+    c_mod, c_btn = st.columns([3, 1])
+    with c_mod:
         selected_model_tab3 = st.selectbox("Select Model:", models_list, key="tab3_model")
-        st.markdown("")
+    with c_btn:
+        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
         run_pred = st.button("▶ Run Prediction", type="primary", use_container_width=True)
 
     st.divider()
@@ -529,7 +538,8 @@ with tab2:
         if selected_model_tab3 == "Ridge Regression":
             pred_return, pred_price = ridge_sandbox(
                 ridge_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
             )
             st.session_state["pred_result"] = {
                 "model": "Ridge Regression",
@@ -541,7 +551,8 @@ with tab2:
         elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
             pred_return, pred_price = xgb_sandbox(
                 xgb_model, X_test_raw,
-                sandbox_price, sandbox_volume, sandbox_return
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
             )
             st.session_state["pred_result"] = {
                 "model": "XGBoost",
@@ -553,7 +564,8 @@ with tab2:
         elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
             pred_return, pred_price = ensemble_sandbox(
                 ensemble_model, X_test_raw,
-                sandbox_price, sandbox_volume, sandbox_return
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
             )
             st.session_state["pred_result"] = {
                 "model": "Ensemble Model: XGBoost + TCN",
@@ -565,7 +577,8 @@ with tab2:
         elif selected_model_tab3 == "Support Vector Regression (SVR)" and svr_model is not None:
             pred_return, pred_price = svr_sandbox(
                 svr_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
             )
             st.session_state["pred_result"] = {
                 "model": "Support Vector Regression (SVR)",
@@ -593,4 +606,4 @@ with tab2:
         r_col3.metric("Predicted Next Price", f"₹{res['price']:,.2f}", delta_color="off")
 
     elif "pred_result" not in st.session_state:
-        st.info("👆 Select a model, enter yesterday's data, and click **Run Prediction** to get started.")
+        st.info("Select a model, enter yesterday's data, and click **Run Prediction** to get started.")

@@ -44,30 +44,23 @@ def predict_batch(ensemble_model, X_train_raw, X_test_raw):
 
 
 def predict_sandbox(ensemble_model, X_test_raw,
-                    sandbox_price, sandbox_volume, sandbox_return):
+                    sandbox_price, sandbox_volume, sandbox_return,
+                    sandbox_vol7d, sandbox_vol30d, sandbox_anomaly):
     """
     Single-row Ensemble prediction from manually entered user inputs.
-
-    Takes the last (seq_len - 1) rows of the test set as historical context,
-    appends one user-simulated row, and passes the full seq_len window
-    through the ensemble to obtain a single prediction.
-
-    Returns
-    -------
-    pred_return : float — predicted exact return (%)
-    pred_price  : float — predicted next-day price
     """
     seq_len        = ensemble_model.seq_len
     # Take seq_len rows as context, then append 1 user row → seq_len+1 total
     # predict() creates (len - seq_len) = 1 window → exactly one prediction
     context_window = X_test_raw.iloc[-seq_len:].copy()
 
-    # Build the simulated "today" row using the last known context row
-    # as a template (fills in Vol_7d, Vol_30d, Is_Anomaly automatically)
     sim_row                      = context_window.iloc[-1].copy()
     sim_row['Price_Lag1']        = sandbox_price
     sim_row['Volume_Lag1']       = sandbox_volume
     sim_row['Exact_Return_Lag1'] = sandbox_return
+    sim_row['Vol_7d']            = sandbox_vol7d
+    sim_row['Vol_30d']           = sandbox_vol30d
+    sim_row['Is_Anomaly']        = sandbox_anomaly
 
     context_window = pd.concat([context_window, pd.DataFrame([sim_row])])
 

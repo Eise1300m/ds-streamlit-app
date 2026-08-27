@@ -33,23 +33,18 @@ def predict_batch(xgb_model, X_test_raw):
     return xgb_returns, xgb_prices
 
 
-def predict_sandbox(xgb_model, X_test_raw, sandbox_price, sandbox_volume, sandbox_return):
+def predict_sandbox(xgb_model, X_test_raw, sandbox_price, sandbox_volume, sandbox_return,
+                    sandbox_vol7d, sandbox_vol30d, sandbox_anomaly):
     """
     Single-row XGBoost prediction from manually entered user inputs.
-
-    Uses the last row of X_test_raw for context features (Vol_7d, Vol_30d,
-    Is_Anomaly) that are not available in the UI, then overwrites the three
-    user-supplied raw features.
-
-    Returns
-    -------
-    pred_return : float — predicted exact return (%)
-    pred_price  : float — predicted next-day price
     """
     last_raw_row = X_test_raw.iloc[-1].copy()
     last_raw_row['Price_Lag1']        = sandbox_price
     last_raw_row['Volume_Lag1']       = sandbox_volume
     last_raw_row['Exact_Return_Lag1'] = sandbox_return
+    last_raw_row['Vol_7d']            = sandbox_vol7d
+    last_raw_row['Vol_30d']           = sandbox_vol30d
+    last_raw_row['Is_Anomaly']        = sandbox_anomaly
 
     pred_return = xgb_model.predict(pd.DataFrame([last_raw_row]))[0]
     pred_price  = sandbox_price * (1 + pred_return / 100)
