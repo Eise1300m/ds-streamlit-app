@@ -6,4 +6,4 @@ plotly
 xgboost
 torch
 joblib
-keras
+tensorflow-cpu
