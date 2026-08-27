@@ -304,24 +304,24 @@ with tab1:
         # Filter table columns based on selected models
         display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume", "Vol_7d", "Vol_30d", "Is_Anomaly"]
         active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)"]
+        
+        df_display = df_range.copy()
         for m in selected_models_tab2:
             if m == "Ridge Regression":
                 display_cols.extend(["Ridge_Pred_Price", "Ridge_Pred_Return_%"])
-            elif m == "XGBoost" and "XGBoost_Pred_Price" in df_range.columns:
+            elif m == "XGBoost" and "XGBoost_Pred_Price" in df_display.columns:
                 display_cols.extend(["XGBoost_Pred_Price", "XGBoost_Pred_Return_%"])
-            elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_range.columns:
+            elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Price" in df_display.columns:
                 display_cols.extend(["Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"])
-            elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Price" in df_range.columns:
+            elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Price" in df_display.columns:
                 display_cols.extend(["Support Vector Regression (SVR)_Pred_Price", "Support Vector Regression (SVR)_Pred_Return_%"])
             else:
-                # Add dummy columns for unfinished models so the user sees them in the table if not present
-                if f"{m}_Pred_Price" not in df_range.columns:
-                    df_range[f"{m}_Pred_Price"] = "TBD"
-                if f"{m}_Pred_Return_%" not in df_range.columns:
-                    df_range[f"{m}_Pred_Return_%"] = "TBD"
+                # Add dummy columns for display only (without touching numeric df_range)
+                df_display[f"{m}_Pred_Price"] = "TBD"
+                df_display[f"{m}_Pred_Return_%"] = "TBD"
                 display_cols.extend([f"{m}_Pred_Price", f"{m}_Pred_Return_%"])
                 
-        st.dataframe(df_range[display_cols], use_container_width=True, hide_index=True)
+        st.dataframe(df_display[display_cols], use_container_width=True, hide_index=True)
         
     st.write("Zoom in on specific historical periods to see how models performed.")
     
@@ -380,7 +380,7 @@ with tab1:
                 
                 # --- Price Forecast chart ---
                 st.markdown("#### Price Forecast in Selected Range")
-                st.caption("ℹ️ **Methodology Note:** The Price Forecast chart evaluates **1-Step-Ahead Daily Predictions** ($P_t = P_{t-1, \\text{actual}} \\times (1 + \\hat{r}_t)$). Each daily forecast resets to yesterday's real market close price, matching real-world daily trading conditions. For long-term compounded return trajectories without daily resets, refer to the **Cumulative Return** chart below.")
+                st.caption("**Methodology Note:** The Price Forecast chart evaluates **1-Step-Ahead Daily Predictions** ($P_t = P_{t-1, \\text{actual}} \\times (1 + \\hat{r}_t)$). Each daily forecast resets to yesterday's real market close price, matching real-world daily trading conditions. For long-term compounded return trajectories without daily resets, refer to the **Cumulative Return** chart below.")
                 fig_price_range = go.Figure()
                 fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Actual_Price'], mode='lines', name='Actual Price', line=dict(color=chart_colors["Actual Price"])))
                 
@@ -452,45 +452,53 @@ with tab1:
                 st.markdown("### Range Summary Table")
                 range_stats = []
                 for m in selected_models_tab2:
-                    if m == "Ridge Regression":
-                        avg_pred_chg = df_range['Ridge_Pred_Return_%'].mean()
-                        avg_price_err = (df_range['Ridge_Pred_Price'] - df_range['Actual_Price']).mean()
-                        trend = "Upward" if df_range['Cum_Ridge_Return'].iloc[-1] > 0 else "Downward"
+                    if m == "Ridge Regression" and "Ridge_Pred_Return_%" in df_range.columns:
+                        s_ret = pd.to_numeric(df_range['Ridge_Pred_Return_%'], errors='coerce')
+                        s_prc = pd.to_numeric(df_range['Ridge_Pred_Price'], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_Ridge_Return' in df_range.columns and df_range['Cum_Ridge_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
-                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
-                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
                         })
                     elif m == "XGBoost" and "XGBoost_Pred_Return_%" in df_range.columns:
-                        avg_pred_chg = df_range['XGBoost_Pred_Return_%'].mean()
-                        avg_price_err = (df_range['XGBoost_Pred_Price'] - df_range['Actual_Price']).mean()
-                        trend = "Upward" if df_range['Cum_XGB_Return'].iloc[-1] > 0 else "Downward"
+                        s_ret = pd.to_numeric(df_range['XGBoost_Pred_Return_%'], errors='coerce')
+                        s_prc = pd.to_numeric(df_range['XGBoost_Pred_Price'], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_XGB_Return' in df_range.columns and df_range['Cum_XGB_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
-                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
-                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
                         })
                     elif m == "Ensemble Model: XGBoost + TCN" and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
-                        avg_pred_chg = df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"].mean()
-                        avg_price_err = (df_range["Ensemble Model: XGBoost + TCN_Pred_Price"] - df_range['Actual_Price']).mean()
-                        trend = "Upward" if df_range['Cum_Ens_Return'].iloc[-1] > 0 else "Downward"
+                        s_ret = pd.to_numeric(df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"], errors='coerce')
+                        s_prc = pd.to_numeric(df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_Ens_Return' in df_range.columns and df_range['Cum_Ens_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
-                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
-                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
                         })
                     elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Return_%" in df_range.columns:
-                        avg_pred_chg = df_range["Support Vector Regression (SVR)_Pred_Return_%"].mean()
-                        avg_price_err = (df_range["Support Vector Regression (SVR)_Pred_Price"] - df_range['Actual_Price']).mean()
-                        trend = "Upward" if df_range['Cum_SVR_Return'].iloc[-1] > 0 else "Downward"
+                        s_ret = pd.to_numeric(df_range["Support Vector Regression (SVR)_Pred_Return_%"], errors='coerce')
+                        s_prc = pd.to_numeric(df_range["Support Vector Regression (SVR)_Pred_Price"], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_SVR_Return' in df_range.columns and df_range['Cum_SVR_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
-                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%",
-                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}"
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
                         })
                     else:
                         range_stats.append({
