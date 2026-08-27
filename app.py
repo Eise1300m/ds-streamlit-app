@@ -314,9 +314,11 @@ with tab1:
             elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Price" in df_range.columns:
                 display_cols.extend(["Support Vector Regression (SVR)_Pred_Price", "Support Vector Regression (SVR)_Pred_Return_%"])
             else:
-                # Add dummy columns for unfinished models so the user sees them in the table
-                df_range[f"{m}_Pred_Price"] = "TBD"
-                df_range[f"{m}_Pred_Return_%"] = "TBD"
+                # Add dummy columns for unfinished models so the user sees them in the table if not present
+                if f"{m}_Pred_Price" not in df_range.columns:
+                    df_range[f"{m}_Pred_Price"] = "TBD"
+                if f"{m}_Pred_Return_%" not in df_range.columns:
+                    df_range[f"{m}_Pred_Return_%"] = "TBD"
                 display_cols.extend([f"{m}_Pred_Price", f"{m}_Pred_Return_%"])
                 
         st.dataframe(df_range[display_cols], use_container_width=True, hide_index=True)
@@ -412,19 +414,19 @@ with tab1:
                 fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Actual_Return'] * 100, mode='lines', name='Actual Market', line=dict(color=chart_colors["Actual Price"])))
                 
                 if "Ridge Regression" in selected_models_tab2:
-                    df_range['Cum_Ridge_Return'] = (1 + df_range['Ridge_Pred_Return_%']/100).cumprod() - 1
+                    df_range['Cum_Ridge_Return'] = (1 + pd.to_numeric(df_range['Ridge_Pred_Return_%'], errors='coerce')/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ridge_Return'] * 100, mode='lines', name='Ridge Regression', line=dict(color=chart_colors["Ridge Regression"])))
                 
                 if "XGBoost" in selected_models_tab2 and "XGBoost_Pred_Return_%" in df_range.columns:
-                    df_range['Cum_XGB_Return'] = (1 + df_range['XGBoost_Pred_Return_%']/100).cumprod() - 1
+                    df_range['Cum_XGB_Return'] = (1 + pd.to_numeric(df_range['XGBoost_Pred_Return_%'], errors='coerce')/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_XGB_Return'] * 100, mode='lines', name='XGBoost', line=dict(color=chart_colors["XGBoost"])))
                     
                 if "Ensemble Model: XGBoost + TCN" in selected_models_tab2 and "Ensemble Model: XGBoost + TCN_Pred_Return_%" in df_range.columns:
-                    df_range['Cum_Ens_Return'] = (1 + df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"]/100).cumprod() - 1
+                    df_range['Cum_Ens_Return'] = (1 + pd.to_numeric(df_range["Ensemble Model: XGBoost + TCN_Pred_Return_%"], errors='coerce')/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_Ens_Return'] * 100, mode='lines', name='Ensemble (XGB+TCN)', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"])))
 
                 if "Support Vector Regression (SVR)" in selected_models_tab2 and "Support Vector Regression (SVR)_Pred_Return_%" in df_range.columns:
-                    df_range['Cum_SVR_Return'] = (1 + df_range["Support Vector Regression (SVR)_Pred_Return_%"]/100).cumprod() - 1
+                    df_range['Cum_SVR_Return'] = (1 + pd.to_numeric(df_range["Support Vector Regression (SVR)_Pred_Return_%"], errors='coerce')/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_SVR_Return'] * 100, mode='lines', name='SVR', line=dict(color=chart_colors["Support Vector Regression (SVR)"])))
 
                 
