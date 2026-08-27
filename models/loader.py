@@ -69,11 +69,27 @@ def load_models():
         svr_model = None
         print(f"[models/loader] WARNING: SVR not loaded: {e}")
 
+    try:
+        import keras
+        lstm_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'LSTM_final_model.keras'))
+    except Exception as e:
+        lstm_model = None
+        print(f"[models/loader] WARNING: LSTM not loaded: {e}")
+
+    try:
+        import keras
+        mlp_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'MLP_final_model.keras'))
+    except Exception as e:
+        mlp_model = None
+        print(f"[models/loader] WARNING: MLP not loaded: {e}")
+
     return {
         "ridge_model":    ridge_model,
         "xgb_model":      xgb_model,
         "ensemble_model": ensemble_model,
         "svr_model":      svr_model,
+        "lstm_model":     lstm_model,
+        "mlp_model":      mlp_model,
         "preprocessors":  preprocessors,
     }
 

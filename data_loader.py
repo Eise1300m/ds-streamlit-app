@@ -6,11 +6,13 @@ Orchestrates model and data loading, runs batch predictions, and returns a unifi
 import pandas as pd
 import numpy as np
 
-from models.loader       import load_models, load_datasets
-from models.ridge        import predict_batch as ridge_batch
+from models.loader        import load_models, load_datasets
+from models.ridge         import predict_batch as ridge_batch
 from models.xgboost_model import predict_batch as xgb_batch
-from models.ensemble     import predict_batch as ens_batch
-from models.svr          import predict_batch as svr_batch
+from models.ensemble      import predict_batch as ens_batch
+from models.svr           import predict_batch as svr_batch
+from models.lstm_model    import predict_batch as lstm_batch
+from models.mlp           import predict_batch as mlp_batch
 
 
 def load_all():
@@ -42,6 +44,8 @@ def load_all():
     xgb_model      = models["xgb_model"]
     ensemble_model = models["ensemble_model"]
     svr_model      = models["svr_model"]
+    lstm_model     = models["lstm_model"]
+    mlp_model      = models["mlp_model"]
     preprocessors  = models["preprocessors"]
 
     X_test_scaled  = datasets["X_test_scaled"]
@@ -88,6 +92,16 @@ def load_all():
         df["Support Vector Regression (SVR)_Pred_Return_%"] = svr_returns
         df["Support Vector Regression (SVR)_Pred_Price"]    = svr_prices
 
+    if mlp_model is not None:
+        mlp_returns, mlp_prices = mlp_batch(mlp_model, X_test_scaled, X_test_raw)
+        df["Multilayer Perceptron (MLP)_Pred_Return_%"] = mlp_returns
+        df["Multilayer Perceptron (MLP)_Pred_Price"]    = mlp_prices
+
+    if lstm_model is not None:
+        lstm_returns, lstm_prices = lstm_batch(lstm_model, X_train_scaled, X_test_scaled, X_test_raw)
+        df["LSTM_Pred_Return_%"] = lstm_returns
+        df["LSTM_Pred_Price"]    = lstm_prices
+
     # 4. Extract Ridge coefficients
     ridge_coefs = ridge_model.coef_
     if len(ridge_coefs.shape) > 1:
@@ -106,5 +120,7 @@ def load_all():
         "xgb_model":      xgb_model,
         "ensemble_model": ensemble_model,
         "svr_model":      svr_model,
+        "lstm_model":     lstm_model,
+        "mlp_model":      mlp_model,
         "preprocessors":  preprocessors,
     }

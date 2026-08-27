@@ -8,6 +8,8 @@ from models.ridge         import predict_sandbox as ridge_sandbox
 from models.xgboost_model import predict_sandbox as xgb_sandbox
 from models.ensemble      import predict_sandbox as ensemble_sandbox
 from models.svr           import predict_sandbox as svr_sandbox
+from models.mlp           import predict_sandbox as mlp_sandbox
+from models.lstm_model    import predict_sandbox as lstm_sandbox
 
 # PAGE SETUP
 st.set_page_config(
@@ -45,6 +47,14 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Hide anchor links next to headers
+st.markdown("""
+<style>
+.stMarkdown a[href^="#"], h1 a, h2 a, h3 a, h4 a,
+[data-testid="stHeaderActionElements"] { display: none !important; }
+</style>
+""", unsafe_allow_html=True)
+
 st.title("MCX Gold Mini Daily Return & Price Forecaster")
 st.divider()
 
@@ -73,6 +83,8 @@ ridge_model    = payload["ridge_model"]
 xgb_model      = payload["xgb_model"]
 ensemble_model = payload["ensemble_model"]
 svr_model      = payload.get("svr_model")
+lstm_model     = payload.get("lstm_model")
+mlp_model      = payload.get("mlp_model")
 preprocessors  = payload["preprocessors"]
 
 models_list = [
@@ -295,7 +307,7 @@ with tab1:
         
         # Filter table columns based on selected models
         display_cols = ["Date", "Actual_Price", "Actual_Return_%", "Volume", "Vol_7d", "Vol_30d", "Is_Anomaly"]
-        active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)"]
+        active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"]
         
         df_display = df_range.copy()
         for m in selected_models_tab2:
@@ -307,6 +319,10 @@ with tab1:
                 display_cols.extend(["Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"])
             elif m == "Support Vector Regression (SVR)" and "Support Vector Regression (SVR)_Pred_Price" in df_display.columns:
                 display_cols.extend(["Support Vector Regression (SVR)_Pred_Price", "Support Vector Regression (SVR)_Pred_Return_%"])
+            elif m == "Multilayer Perceptron (MLP)" and "Multilayer Perceptron (MLP)_Pred_Price" in df_display.columns:
+                display_cols.extend(["Multilayer Perceptron (MLP)_Pred_Price", "Multilayer Perceptron (MLP)_Pred_Return_%"])
+            elif m == "LSTM" and "LSTM_Pred_Price" in df_display.columns:
+                display_cols.extend(["LSTM_Pred_Price", "LSTM_Pred_Return_%"])
             else:
                 # Add dummy columns for display only (without touching numeric df_range)
                 df_display[f"{m}_Pred_Price"] = "TBD"
@@ -384,6 +400,10 @@ with tab1:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Ensemble Model: XGBoost + TCN_Pred_Price"], mode='lines', name='Ensemble (XGB+TCN) Price', line=dict(color=chart_colors["Ensemble Model: XGBoost + TCN"], dash='dot')))
                 if "Support Vector Regression (SVR)" in selected_models_tab2 and "Support Vector Regression (SVR)_Pred_Price" in df_range.columns:
                     fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Support Vector Regression (SVR)_Pred_Price"], mode='lines', name='SVR Predicted Price', line=dict(color=chart_colors["Support Vector Regression (SVR)"], dash='dashdot')))
+                if "Multilayer Perceptron (MLP)" in selected_models_tab2 and "Multilayer Perceptron (MLP)_Pred_Price" in df_range.columns:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["Multilayer Perceptron (MLP)_Pred_Price"], mode='lines', name='MLP Predicted Price', line=dict(color=chart_colors["Multilayer Perceptron (MLP)"], dash='dashdot')))
+                if "LSTM" in selected_models_tab2 and "LSTM_Pred_Price" in df_range.columns:
+                    fig_price_range.add_trace(go.Scatter(x=df_range['Date'], y=df_range["LSTM_Pred_Price"], mode='lines', name='LSTM Predicted Price', line=dict(color=chart_colors["LSTM"], dash='dashdot')))
                     
                 fig_price_range.update_layout(hovermode="x unified")
                 st.plotly_chart(
@@ -420,6 +440,14 @@ with tab1:
                 if "Support Vector Regression (SVR)" in selected_models_tab2 and "Support Vector Regression (SVR)_Pred_Return_%" in df_range.columns:
                     df_range['Cum_SVR_Return'] = (1 + pd.to_numeric(df_range["Support Vector Regression (SVR)_Pred_Return_%"], errors='coerce')/100).cumprod() - 1
                     fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_SVR_Return'] * 100, mode='lines', name='SVR', line=dict(color=chart_colors["Support Vector Regression (SVR)"])))
+
+                if "Multilayer Perceptron (MLP)" in selected_models_tab2 and "Multilayer Perceptron (MLP)_Pred_Return_%" in df_range.columns:
+                    df_range['Cum_MLP_Return'] = (1 + pd.to_numeric(df_range["Multilayer Perceptron (MLP)_Pred_Return_%"], errors='coerce')/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_MLP_Return'] * 100, mode='lines', name='MLP', line=dict(color=chart_colors["Multilayer Perceptron (MLP)"])))
+
+                if "LSTM" in selected_models_tab2 and "LSTM_Pred_Return_%" in df_range.columns:
+                    df_range['Cum_LSTM_Return'] = (1 + pd.to_numeric(df_range["LSTM_Pred_Return_%"], errors='coerce')/100).cumprod() - 1
+                    fig_cum.add_trace(go.Scatter(x=df_range['Date'], y=df_range['Cum_LSTM_Return'] * 100, mode='lines', name='LSTM', line=dict(color=chart_colors["LSTM"])))
 
                 
                 fig_cum.update_layout(
@@ -486,6 +514,30 @@ with tab1:
                         avg_pred_chg = s_ret.mean()
                         avg_price_err = (s_prc - df_range['Actual_Price']).mean()
                         trend = "Upward" if 'Cum_SVR_Return' in df_range.columns and df_range['Cum_SVR_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
+                        })
+                    elif m == "Multilayer Perceptron (MLP)" and "Multilayer Perceptron (MLP)_Pred_Return_%" in df_range.columns:
+                        s_ret = pd.to_numeric(df_range["Multilayer Perceptron (MLP)_Pred_Return_%"], errors='coerce')
+                        s_prc = pd.to_numeric(df_range["Multilayer Perceptron (MLP)_Pred_Price"], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_MLP_Return' in df_range.columns and df_range['Cum_MLP_Return'].iloc[-1] > 0 else "Downward"
+                        range_stats.append({
+                            "Model": m,
+                            "Trend": trend,
+                            "Avg Predicted Chg %": f"{avg_pred_chg:+.4f}%" if pd.notnull(avg_pred_chg) else "TBD",
+                            "Avg Price Pred Diff": f"₹{avg_price_err:,.2f}" if pd.notnull(avg_price_err) else "TBD"
+                        })
+                    elif m == "LSTM" and "LSTM_Pred_Return_%" in df_range.columns:
+                        s_ret = pd.to_numeric(df_range["LSTM_Pred_Return_%"], errors='coerce')
+                        s_prc = pd.to_numeric(df_range["LSTM_Pred_Price"], errors='coerce')
+                        avg_pred_chg = s_ret.mean()
+                        avg_price_err = (s_prc - df_range['Actual_Price']).mean()
+                        trend = "Upward" if 'Cum_LSTM_Return' in df_range.columns and df_range['Cum_LSTM_Return'].iloc[-1] > 0 else "Downward"
                         range_stats.append({
                             "Model": m,
                             "Trend": trend,
@@ -587,9 +639,35 @@ with tab2:
                 "inputs": (sandbox_price, sandbox_volume, sandbox_return),
             }
 
+        elif selected_model_tab3 == "Multilayer Perceptron (MLP)" and mlp_model is not None:
+            pred_return, pred_price = mlp_sandbox(
+                mlp_model, X_test_scaled, preprocessors,
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+            )
+            st.session_state["pred_result"] = {
+                "model": "Multilayer Perceptron (MLP)",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
+        elif selected_model_tab3 == "LSTM" and lstm_model is not None:
+            pred_return, pred_price = lstm_sandbox(
+                lstm_model, X_test_scaled, preprocessors,
+                sandbox_price, sandbox_volume, sandbox_return,
+                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+            )
+            st.session_state["pred_result"] = {
+                "model": "LSTM",
+                "ret": pred_return,
+                "price": pred_price,
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+            }
+
         else:
             st.session_state["pred_result"] = None
-            st.warning(f"Live prediction for **'{selected_model_tab3}'** is currently under Future Development. Please select Ridge Regression, XGBoost, or Ensemble Model.")
+            st.warning(f"Live prediction for **'{selected_model_tab3}'** is not available. The model may not have loaded correctly.")
 
     # Display the last stored result (persists across re-runs until new button press)
     if "pred_result" in st.session_state and st.session_state["pred_result"] is not None:
