@@ -230,7 +230,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
         perm_model = st.selectbox(
             "Select Model for Permutation Analysis:", 
-            ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
+            ["Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
             key="perm_model_select"
         )
         
