@@ -70,6 +70,7 @@ def load_models():
         print(f"[models/loader] WARNING: SVR not loaded: {e}")
 
     try:
+        os.environ['KERAS_BACKEND'] = 'torch' # Force PyTorch backend to avoid TensorFlow dependency
         import keras
         lstm_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'LSTM_final_model.keras'))
     except Exception as e:
@@ -77,6 +78,7 @@ def load_models():
         print(f"[models/loader] WARNING: LSTM not loaded: {e}")
 
     try:
+        os.environ['KERAS_BACKEND'] = 'torch'
         import keras
         mlp_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'MLP_final_model.keras'))
     except Exception as e:
