@@ -222,7 +222,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             
         else:
             st.warning(f"**{weight_model}** does not output simple native weights. It is a complex 'Black-Box' model.")
-            st.write("👉 Please go to **Tab 3: Permutation Importance** to analyze how features impact this model's predictions.")
+            st.write("Please go to **Tab 3: Permutation Importance** to analyze how features impact this model's predictions.")
         
     with feat_tab3:
         st.subheader("Category 3: Black-Box Analysis (Permutation Importance)")
@@ -358,7 +358,7 @@ with tab1:
     st.write("Zoom in on specific historical periods to see how models performed.")
     
     # Check for unfinished models warning
-    active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)"]
+    active_models = ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"]
     for sm in selected_models_tab2:
         if sm not in active_models:
             st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
