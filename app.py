@@ -677,11 +677,11 @@ with tab2:
     col1, col2 = st.columns(2)
     with col1:
         sandbox_price  = st.number_input("Yesterday's Close Price (₹):",  value=60000.0, step=500.0)
-        sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.5,     step=0.1)
-        sandbox_volume = st.number_input("Yesterday's Volume:",            value=5000,    step=500)
+        sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.02,    step=0.1)
+        sandbox_volume = st.number_input("Yesterday's Volume:",            value=51877,   step=500)
     with col2:
-        sandbox_vol7d  = st.number_input("7-Day Vol Ratio (Vol_7d):",      value=0.30,  step=0.01)
-        sandbox_vol30d = st.number_input("30-Day Vol Ratio (Vol_30d):",    value=0.45,  step=0.01)
+        sandbox_vol7d  = st.number_input("7-Day Vol Ratio (Vol_7d):",      value=0.85,  step=0.01)
+        sandbox_vol30d = st.number_input("30-Day Vol Ratio (Vol_30d):",    value=0.99,  step=0.01)
         sandbox_anomaly = st.checkbox(
             "Volume Anomaly (Is_Anomaly)?",      
             value=False,
