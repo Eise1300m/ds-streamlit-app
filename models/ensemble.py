@@ -95,6 +95,9 @@ def predict_sandbox(ensemble_model, X_test_raw,
     with torch.no_grad():
         tcn_pred = ensemble_model.tcn_model(tcn_input).item()
 
+    debug_info["XGBoost Sub-Prediction"] = xgb_pred
+    debug_info["TCN Sub-Prediction"] = tcn_pred
+
     # --- C. Weighted Ensemble Combination ---
     tcn_weight = ensemble_model.tcn_weight
     pred_return = tcn_weight * tcn_pred + (1 - tcn_weight) * xgb_pred
