@@ -243,6 +243,10 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             
             # Ensure the lengths match to prevent ValueError
             if len(ridge_coefs) == len(ridge_feats):
+                # Sort by absolute weight value ascending
+                sorted_ridge = sorted(zip(ridge_coefs, ridge_feats), key=lambda x: abs(x[0]))
+                ridge_coefs = [x[0] for x in sorted_ridge]
+                ridge_feats = [x[1] for x in sorted_ridge]
                 fig_feat = go.Figure(go.Bar(
                     x=ridge_coefs,
                     y=ridge_feats,
@@ -259,6 +263,11 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             if xgb_model is not None:
                 xgb_feats = X_test_raw.columns.tolist()
                 xgb_importances = xgb_model.feature_importances_
+                
+                # Sort by importance ascending
+                sorted_xgb = sorted(zip(xgb_importances, xgb_feats), key=lambda x: x[0])
+                xgb_importances = [x[0] for x in sorted_xgb]
+                xgb_feats = [x[1] for x in sorted_xgb]
                 fig_xgb = go.Figure(go.Bar(
                     x=xgb_importances,
                     y=xgb_feats,
@@ -293,7 +302,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             color = '#17BECF'
         elif perm_model == "Ensemble Model: XGBoost + TCN":
             perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
-            perm_importance = [0.085, 0.032, 0.051, 0.015, 0.022, 0.005]
+            perm_importance = [0.006029,0.018748,0.012038,-0.003004,0.020273,0.001868]
             color = 'purple'
         elif perm_model == "Multilayer Perceptron (MLP)":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
@@ -303,6 +312,11 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
             perm_importance = [0.091, 0.028, 0.065, 0.020, 0.030, 0.012]
             color = '#BCBD22'
+        
+        # Sort permutation importance ascending
+        sorted_perm = sorted(zip(perm_importance, perm_feats), key=lambda x: x[0])
+        perm_importance = [x[0] for x in sorted_perm]
+        perm_feats = [x[1] for x in sorted_perm]
         
         fig_perm = go.Figure(go.Bar(
             x=perm_importance,
