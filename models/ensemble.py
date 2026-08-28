@@ -49,11 +49,12 @@ def predict_sandbox(ensemble_model, X_test_raw,
     """
     Single-row Ensemble prediction from manually entered user inputs.
     """
-    seq_len        = ensemble_model.seq_len
-    # Take seq_len rows as context, then append 1 user row → seq_len+1 total
-    # predict() creates (len - seq_len) = 1 window → exactly one prediction
-    context_window = X_test_raw.iloc[-seq_len:].copy()
+    seq_len = ensemble_model.seq_len
+    
+    # 1. Take the last (seq_len - 1) rows from test set as background context
+    context_window = X_test_raw.iloc[-(seq_len - 1):].copy()
 
+    # 2. Build the simulated row from user inputs
     sim_row                      = context_window.iloc[-1].copy()
     sim_row['Price_Lag1']        = sandbox_price
     sim_row['Volume_Lag1']       = sandbox_volume
@@ -62,8 +63,32 @@ def predict_sandbox(ensemble_model, X_test_raw,
     sim_row['Vol_30d']           = sandbox_vol30d
     sim_row['Is_Anomaly']        = sandbox_anomaly
 
-    context_window = pd.concat([context_window, pd.DataFrame([sim_row])])
+    # Stitch custom manual input to the end to make exactly `seq_len` rows
+    window = pd.concat([context_window, pd.DataFrame([sim_row])]).values
 
-    pred_return = ensemble_model.predict(context_window)[0]
-    pred_price  = sandbox_price * (1 + pred_return / 100)
+    # --- A. XGBoost Sub-model Prediction ---
+    latest_raw = window[-1].reshape(1, -1)
+    xgb_pred = ensemble_model.xgb_model.predict(latest_raw)[0]
+
+    # --- B. TCN Sub-model Prediction ---
+    from model_architecture import preprocess_for_tcn
+    import torch
+    import numpy as np
+    
+    scaled_window = np.array([
+        preprocess_for_tcn(row, ensemble_model.preprocessors) for row in window
+    ])
+    tcn_input = torch.tensor(scaled_window, dtype=torch.float32).unsqueeze(0).to(ensemble_model.device)
+    
+    ensemble_model.tcn_model.eval()
+    with torch.no_grad():
+        tcn_pred = ensemble_model.tcn_model(tcn_input).item()
+
+    # --- C. Weighted Ensemble Combination ---
+    tcn_weight = ensemble_model.tcn_weight
+    pred_return = tcn_weight * tcn_pred + (1 - tcn_weight) * xgb_pred
+
+    # --- D. Price Reconstruction ---
+    pred_price = sandbox_price * (1 + pred_return / 100)
+    
     return pred_return, pred_price
