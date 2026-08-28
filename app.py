@@ -234,29 +234,39 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             key="perm_model_select"
         )
         
-        perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
-        
         # Pre-calculated/Representative permutation importance for each model
-        if perm_model == "Ensemble Model: XGBoost + TCN":
+        if perm_model == "Support Vector Regression (SVR)":
+            perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
+            # Values from SVR Permutation Importance evaluation
+            # Log_Price_Lag1: 0.000051, Yeo_Volume_Lag1: -0.000238, Exact_Return_Lag1: 0.000139, Yeo_Vol_7d: 0.000008, Yeo_Vol_30d: 0.000020, Is_Anomaly: 0.000187
+            perm_importance = [0.000051, -0.000238, 0.000139, 0.000008, 0.000020, 0.000187]
+            color = '#17BECF'
+        elif perm_model == "Ensemble Model: XGBoost + TCN":
+            perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
             perm_importance = [0.085, 0.032, 0.051, 0.015, 0.022, 0.005]
             color = 'purple'
         elif perm_model == "Multilayer Perceptron (MLP)":
+            perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
             perm_importance = [0.072, 0.045, 0.061, 0.018, 0.025, 0.008]
             color = '#8C564B'
         elif perm_model == "LSTM":
+            perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
             perm_importance = [0.091, 0.028, 0.065, 0.020, 0.030, 0.012]
             color = '#BCBD22'
-        elif perm_model == "Support Vector Regression (SVR)":
-            perm_importance = [0.068, 0.035, 0.048, 0.012, 0.015, 0.002]
-            color = '#17BECF'
         
         fig_perm = go.Figure(go.Bar(
             x=perm_importance,
             y=perm_feats,
             orientation='h',
-            marker_color=color
+            marker_color=color,
+            hovertemplate="Feature: %{y}<br>Importance: %{x:.6f}<extra></extra>"
         ))
-        fig_perm.update_layout(title=f"{perm_model} Permutation Importance", xaxis_title="Increase in RMSE when shuffled", yaxis_title="Feature")
+        fig_perm.update_layout(
+            title=f"{perm_model} Permutation Importance", 
+            xaxis_title="Increase in RMSE when shuffled", 
+            yaxis_title="Feature"
+        )
+        fig_perm.update_xaxes(tickformat=".6f")
         st.plotly_chart(fig_perm, use_container_width=True)
 
 # ── SECTION 2: INTERACTIVE ANALYSIS TOOLS ────────────────────────────────────
