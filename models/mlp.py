@@ -32,7 +32,6 @@ def predict_sandbox(mlp_model, X_test_scaled, preprocessors,
     last_scaled_row['Exact_Return_Lag1'] = ret_scaled
     last_scaled_row['Yeo_Vol_7d']        = vol7d_scaled
     last_scaled_row['Yeo_Vol_30d']       = vol30d_scaled
-    # Use exact 16-decimal floats from Colab to prevent prediction drift
     is_anomaly_scaled = 4.287301293465667 if sandbox_anomaly else -0.2332469615616036
     last_scaled_row['Is_Anomaly']        = is_anomaly_scaled
 

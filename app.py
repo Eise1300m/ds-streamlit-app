@@ -10,6 +10,7 @@ from models.ensemble      import predict_sandbox as ensemble_sandbox
 from models.svr           import predict_sandbox as svr_sandbox
 from models.mlp           import predict_sandbox as mlp_sandbox
 from models.lstm_model    import predict_sandbox as lstm_sandbox
+from sklearn.metrics import mean_absolute_error, mean_squared_error
 
 # PAGE SETUP
 st.set_page_config(
@@ -96,29 +97,78 @@ models_list = [
     "LSTM"
 ]
 
-# ── SECTION 1: STATIC DASHBOARD OVERVIEW ─────────────────────────────────────
-st.markdown('<div class="section-banner">Dashboard Overview — Model Performance Summary</div>', unsafe_allow_html=True)
+# ── SECTION 1: DYNAMIC DASHBOARD OVERVIEW ─────────────────────────────────────
+st.markdown('<div class="section-banner">Dashboard Overview — Live Model Performance Summary</div>', unsafe_allow_html=True)
 
-# Hardcoded true metrics from user
-leaderboard_data = [
-    {"Model": "XGBoost", "MAE": "0.6415", "RMSE": "0.9180", "Directional Accuracy": "57.12%"},
-    {"Model": "Ensemble Model: XGBoost + TCN", "MAE": "0.6350", "RMSE": "0.9100", "Directional Accuracy": "58.59%"},
-    {"Model": "Ridge Regression", "MAE": "0.6419", "RMSE": "0.9186", "Directional Accuracy": "57.61%"},
-    {"Model": "Support Vector Regression (SVR)", "MAE": "0.6389", "RMSE": "0.9163", "Directional Accuracy": "60.56%"},
-    {"Model": "Multilayer Perceptron (MLP)", "MAE": "0.6693", "RMSE": "0.9474", "Directional Accuracy": "49.75%"},
-    {"Model": "LSTM", "MAE": "0.6498", "RMSE": "0.9230", "Directional Accuracy": "53.68%"}
-]
+# DYNAMIC METRICS CALCULATION
+def calculate_directional_accuracy(y_true, y_pred):
+    return np.mean(np.sign(y_true) == np.sign(y_pred)) * 100
 
-# Quick KPI row — best model highlights
-_kc1, _kc2, _kc3, _kc4 = st.columns(4)
-_kc1.metric("Best MAE", "0.6350", "Ensemble XGB+TCN", delta_color="off")
-_kc2.metric("Best RMSE", "0.9100", "Ensemble XGB+TCN", delta_color="off")
-_kc3.metric("Best Direction", "60.56%", "SVR", delta_color="off")
-st.markdown("")
+leaderboard_data = []
 
-# Display Leaderboard
-st.caption("Full Model Leaderboard")
-st.dataframe(pd.DataFrame(leaderboard_data), use_container_width=True, hide_index=True)
+model_col_map = {
+    "Ridge Regression": "Ridge_Pred_Return_%",
+    "XGBoost": "XGBoost_Pred_Return_%",
+    "Ensemble Model: XGBoost + TCN": "Ensemble Model: XGBoost + TCN_Pred_Return_%",
+    "Support Vector Regression (SVR)": "Support Vector Regression (SVR)_Pred_Return_%",
+    "Multilayer Perceptron (MLP)": "Multilayer Perceptron (MLP)_Pred_Return_%",
+    "LSTM": "LSTM_Pred_Return_%"
+}
+
+actual_returns = df_test['Actual_Return_%'].values
+
+# Calculate metrics live based on the data loaded
+for model_name, pred_col in model_col_map.items():
+    if pred_col in df_test.columns:
+        valid_mask = ~df_test[pred_col].isna()
+        if valid_mask.any():
+            y_true = actual_returns[valid_mask]
+            y_pred = df_test[pred_col].values[valid_mask]
+            
+            mae = mean_absolute_error(y_true, y_pred)
+            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+            da = calculate_directional_accuracy(y_true, y_pred)
+            
+            leaderboard_data.append({
+                "Model": model_name,
+                "MAE_val": mae,
+                "RMSE_val": rmse,
+                "DA_val": da,
+                "MAE": f"{mae:.4f}",
+                "RMSE": f"{rmse:.4f}",
+                "Directional Accuracy": f"{da:.2f}%"
+            })
+
+ldb_df = pd.DataFrame(leaderboard_data)
+
+if not ldb_df.empty:
+    # Dynamically find the best models for the KPI cards
+    best_mae_idx = ldb_df['MAE_val'].idxmin()
+    best_rmse_idx = ldb_df['RMSE_val'].idxmin()
+    best_da_idx = ldb_df['DA_val'].idxmax()
+
+    best_mae_val = ldb_df.loc[best_mae_idx, 'MAE']
+    best_mae_model = ldb_df.loc[best_mae_idx, 'Model']
+    
+    best_rmse_val = ldb_df.loc[best_rmse_idx, 'RMSE']
+    best_rmse_model = ldb_df.loc[best_rmse_idx, 'Model']
+    
+    best_da_val = ldb_df.loc[best_da_idx, 'Directional Accuracy']
+    best_da_model = ldb_df.loc[best_da_idx, 'Model']
+
+    # Quick KPI row — best model highlights
+    _kc1, _kc2, _kc3, _kc4 = st.columns(4)
+    _kc1.metric("Best MAE", best_mae_val, best_mae_model, delta_color="off")
+    _kc2.metric("Best RMSE", best_rmse_val, best_rmse_model, delta_color="off")
+    _kc3.metric("Best Direction", best_da_val, best_da_model, delta_color="off")
+    st.markdown("")
+
+    # Display Leaderboard
+    st.caption("Full Model Leaderboard (Calculated Live from Data)")
+    display_df = ldb_df[["Model", "MAE", "RMSE", "Directional Accuracy"]]
+    st.dataframe(display_df, use_container_width=True, hide_index=True)
+else:
+    st.warning("No model predictions found in the dataset to generate leaderboard.")
 
 with st.expander("Click to View More About Model: Feature Importance Visualizations"):
     st.write("Understand the driving factors behind the model's predictions.")

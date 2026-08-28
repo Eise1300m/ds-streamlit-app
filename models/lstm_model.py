@@ -1,31 +1,32 @@
 """
 models/lstm_model.py
 LSTM (Keras) inference logic. Uses Toolbox B (scaled features).
-Requires a 20-step sliding window (seq_len=20).
+Configured for 5-day lookback matching LSTM_final_model.keras.
 """
 
 import numpy as np
 import pandas as pd
 
-LSTM_SEQ_LEN = 20
-
+# Set to 5 to match WINNING_LOOKBACK = 5 from LSTM.ipynb
+LSTM_SEQ_LEN = 5
 
 def predict_batch(lstm_model, X_train_scaled, X_test_scaled, X_test_raw):
     """
     Batch LSTM predictions over the full test set.
-    Concatenates training context so the first test rows have enough history.
+    Replicates the exact create_sequences() logic from LSTM.ipynb.
     """
-    context = pd.concat([X_train_scaled.iloc[-LSTM_SEQ_LEN:], X_test_scaled])
-    values = context.values
-    n_test = len(X_test_scaled)
+    # 1. Build test context (5 train rows + 611 test rows = 616 rows)
+    X_test_context = pd.concat([X_train_scaled.tail(LSTM_SEQ_LEN), X_test_scaled], ignore_index=True)
+    X_arr = X_test_context.to_numpy(dtype=np.float32)
 
-    preds = []
-    for i in range(n_test):
-        window = values[i : i + LSTM_SEQ_LEN].reshape(1, LSTM_SEQ_LEN, -1)
-        pred = lstm_model.predict(window, verbose=0).flatten()[0]
-        preds.append(pred)
+    # 2. Build 3D sequences identically to Colab
+    X_seq = []
+    for i in range(LSTM_SEQ_LEN, len(X_arr)):
+        X_seq.append(X_arr[i - LSTM_SEQ_LEN + 1 : i + 1])
+    X_test_seq = np.asarray(X_seq)
 
-    preds = np.array(preds)
+    # 3. Vectorized batch prediction
+    preds = lstm_model.predict(X_test_seq, verbose=0).flatten()
     prices = X_test_raw['Price_Lag1'].values * (1 + preds / 100)
     return preds, prices
 
@@ -35,10 +36,7 @@ def predict_sandbox(lstm_model, X_test_scaled, preprocessors,
                     sandbox_vol7d, sandbox_vol30d, sandbox_anomaly):
     """
     Single-row LSTM prediction from user inputs.
-    Takes the last (seq_len - 1) rows from test set as context,
-    appends 1 user-simulated scaled row, then feeds the 20-step window.
     """
-    # Build the simulated row from user inputs
     sim_row = X_test_scaled.iloc[-1].copy()
 
     log_price     = np.log(sandbox_price)
@@ -53,14 +51,13 @@ def predict_sandbox(lstm_model, X_test_scaled, preprocessors,
     sim_row['Exact_Return_Lag1'] = ret_scaled
     sim_row['Yeo_Vol_7d']        = vol7d_scaled
     sim_row['Yeo_Vol_30d']       = vol30d_scaled
-    # Use exact 16-decimal floats from Colab to prevent prediction drift
     is_anomaly_scaled = 4.287301293465667 if sandbox_anomaly else -0.2332469615616036
     sim_row['Is_Anomaly']        = is_anomaly_scaled
 
-    # Build the 20-step context window
-    context = X_test_scaled.iloc[-(LSTM_SEQ_LEN - 1):].copy()
-    context = pd.concat([context, pd.DataFrame([sim_row])])
-    window = context.values.reshape(1, LSTM_SEQ_LEN, -1)
+    # Context window: last 4 rows + 1 user simulated row = 5 timesteps
+    context = X_test_scaled.tail(LSTM_SEQ_LEN - 1).copy()
+    context = pd.concat([context, pd.DataFrame([sim_row])], ignore_index=True)
+    window = context.to_numpy(dtype=np.float32).reshape(1, LSTM_SEQ_LEN, -1)
 
     pred_return = lstm_model.predict(window, verbose=0).flatten()[0]
     pred_price = sandbox_price * (1 + pred_return / 100)
