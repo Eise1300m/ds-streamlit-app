@@ -183,7 +183,7 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
         weight_model = st.selectbox(
             "Select Model to View Weights:", 
-            ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
+            ["Ridge Regression", "XGBoost"],
             key="weight_model_select"
         )
         
@@ -249,12 +249,6 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         elif perm_model == "Support Vector Regression (SVR)":
             perm_importance = [0.068, 0.035, 0.048, 0.012, 0.015, 0.002]
             color = '#17BECF'
-        elif perm_model == "XGBoost":
-            perm_importance = [0.088, 0.042, 0.055, 0.022, 0.028, 0.006]
-            color = '#FF7F0E'
-        else: # Ridge
-            perm_importance = [0.055, 0.025, 0.035, 0.010, 0.012, 0.001]
-            color = '#2CA02C'
         
         fig_perm = go.Figure(go.Bar(
             x=perm_importance,
@@ -593,9 +587,13 @@ with tab2:
         sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.5,     step=0.1)
         sandbox_volume = st.number_input("Yesterday's Volume:",            value=5000,    step=500)
     with col2:
-        sandbox_vol7d  = st.number_input("7-Day Avg Volume (Vol_7d):",     value=5000.0,  step=100.0)
-        sandbox_vol30d = st.number_input("30-Day Avg Volume (Vol_30d):",   value=5000.0,  step=100.0)
-        sandbox_anomaly = st.checkbox("Volume Anomaly (Is_Anomaly)?",      value=False)
+        sandbox_vol7d  = st.number_input("7-Day Vol Ratio (Vol_7d):",      value=0.30,  step=0.01)
+        sandbox_vol30d = st.number_input("30-Day Vol Ratio (Vol_30d):",    value=0.45,  step=0.01)
+        sandbox_anomaly = st.checkbox(
+            "Volume Anomaly (Is_Anomaly)?",      
+            value=False,
+            help="Check this box if yesterday's trading volume was exceptionally higher or lower than the recent average (e.g., a massive volume spike)."
+        )
         sandbox_anomaly_int = 1 if sandbox_anomaly else 0
 
     st.markdown("---")
