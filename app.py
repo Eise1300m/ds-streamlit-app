@@ -262,7 +262,17 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             st.write("XGBoost uses **Toolbox A (Raw Features)**. It assigns 'Gain' weights based on how much a feature improves tree splits.")
             if xgb_model is not None:
                 xgb_feats = X_test_raw.columns.tolist()
-                xgb_importances = xgb_model.feature_importances_
+                
+                # Extract raw, un-normalized Gain scores directly from the model to match Colab
+                booster = xgb_model.get_booster()
+                gain_dict = booster.get_score(importance_type='gain')
+                
+                # Sometimes XGBoost saves features as 'f0', 'f1', etc., so we safely map them
+                if len(gain_dict) > 0 and 'f0' in list(gain_dict.keys())[0]:
+                    xgb_importances = [gain_dict.get(f'f{i}', 0.0) for i in range(len(xgb_feats))]
+                else:
+                    xgb_importances = [gain_dict.get(feat, 0.0) for feat in xgb_feats]
+
                 
                 # Sort by importance ascending
                 sorted_xgb = sorted(zip(xgb_importances, xgb_feats), key=lambda x: x[0])
