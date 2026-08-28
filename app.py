@@ -299,31 +299,40 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             # Values from SVR Permutation Importance evaluation
             # Log_Price_Lag1: 0.000051, Yeo_Volume_Lag1: -0.000238, Exact_Return_Lag1: 0.000139, Yeo_Vol_7d: 0.000008, Yeo_Vol_30d: 0.000020, Is_Anomaly: 0.000187
             perm_importance = [0.000051, -0.000238, 0.000139, 0.000008, 0.000020, 0.000187]
+            perm_sd = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             color = '#17BECF'
         elif perm_model == "Ensemble Model: XGBoost + TCN":
             perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
             perm_importance = [0.006029,0.018748,0.012038,-0.003004,0.020273,0.001868]
+            perm_sd = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             color = 'purple'
         elif perm_model == "Multilayer Perceptron (MLP)":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-            perm_importance = [0.072, 0.045, 0.061, 0.018, 0.025, 0.008]
+            # Values from user screenshot: [Price: 0.0104, Vol: 0.0085, Ret: 0.0032, Vol7: 0.0051, Vol30: 0.0086, Anomaly: 0.0087]
+            perm_importance = [0.0104, 0.0085, 0.0032, 0.0051, 0.0086, 0.0087]
+            perm_sd = [0.0014, 0.0039, 0.0032, 0.0041, 0.0020, 0.0033]
             color = '#8C564B'
         elif perm_model == "LSTM":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-            perm_importance = [0.091, 0.028, 0.065, 0.020, 0.030, 0.012]
+            # Values from user screenshot: [Price: -0.0013, Vol: -0.0065, Ret: -0.0008, Vol7: -0.0028, Vol30: -0.0029, Anomaly: 0.0005]
+            perm_importance = [-0.0013, -0.0065, -0.0008, -0.0028, -0.0029, 0.0005]
+            perm_sd = [0.0007, 0.0018, 0.0015, 0.0019, 0.0019, 0.0008]
             color = '#BCBD22'
         
-        # Sort permutation importance ascending
-        sorted_perm = sorted(zip(perm_importance, perm_feats), key=lambda x: x[0])
+        # Sort permutation importance ascending (mean, feature, sd)
+        sorted_perm = sorted(zip(perm_importance, perm_feats, perm_sd), key=lambda x: x[0])
         perm_importance = [x[0] for x in sorted_perm]
         perm_feats = [x[1] for x in sorted_perm]
+        perm_sd = [x[2] for x in sorted_perm]
         
         fig_perm = go.Figure(go.Bar(
             x=perm_importance,
             y=perm_feats,
             orientation='h',
             marker_color=color,
-            hovertemplate="Feature: %{y}<br>Importance: %{x:.6f}<extra></extra>"
+            error_x=dict(type='data', array=perm_sd, visible=True),
+            customdata=perm_sd,
+            hovertemplate="Feature: %{y}<br>Importance: %{x:.6f} ± %{customdata:.6f} (SD)<extra></extra>"
         ))
         fig_perm.update_layout(
             title=f"{perm_model} Permutation Importance", 
