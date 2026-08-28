@@ -3,7 +3,7 @@ pandas
 numpy
 scikit-learn
 plotly
-xgboost>=2.0.0,<3.0.0
+xgboost==2.0.3
 torch
 joblib
 keras
