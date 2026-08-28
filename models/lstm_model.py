@@ -53,7 +53,9 @@ def predict_sandbox(lstm_model, X_test_scaled, preprocessors,
     sim_row['Exact_Return_Lag1'] = ret_scaled
     sim_row['Yeo_Vol_7d']        = vol7d_scaled
     sim_row['Yeo_Vol_30d']       = vol30d_scaled
-    sim_row['Is_Anomaly']        = sandbox_anomaly
+    # Scale Is_Anomaly manually (mean ~0.0516, std ~0.2212 from training data)
+    is_anomaly_scaled = (sandbox_anomaly - 0.0516) / 0.2212
+    sim_row['Is_Anomaly']        = is_anomaly_scaled
 
     # Build the 20-step context window
     context = X_test_scaled.iloc[-(LSTM_SEQ_LEN - 1):].copy()
