@@ -540,13 +540,15 @@ with tab1:
                             actual_trend = "UP" if actual_ret > 0 else "DOWN"
                             
                             is_correct = (pred_ret > 0 and actual_ret > 0) or (pred_ret < 0 and actual_ret < 0)
-                            match_text = "Correct Trend" if is_correct else "Wrong Trend"
+                            
+                            # Prefix with a minus sign (-) if wrong. Streamlit replaces it with a red DOWN arrow (↓).
+                            match_text = "Correct Trend" if is_correct else "- Wrong Trend"
                             
                             st.metric(
                                 label=f"Predicted Trend (Actual was {actual_trend})",
                                 value=pred_trend,
                                 delta=match_text,
-                                delta_color="normal" if is_correct else "inverse"
+                                delta_color="normal"
                             )
         else:
             # Date Range (> 1 day)
