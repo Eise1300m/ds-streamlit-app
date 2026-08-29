@@ -52,18 +52,15 @@ def load_models():
     preprocessors = joblib.load(pkl('preprocessors.pkl'))
 
     try:
-        xgb_model = joblib.load(pkl('xgboost_tuned.pkl'))
-        # Overwrite with JSON model to prevent architecture corruption
-        try:
-            import xgboost as xgb
-            json_xgb_standalone = xgb.XGBRegressor()
-            json_xgb_standalone.load_model(os.path.join(base, 'model_pkl', 'xgb_submodel.json'))
-            xgb_model = json_xgb_standalone
-        except Exception as json_e:
-            pass
+        import xgboost as xgb
+        xgb_model = xgb.XGBRegressor()
+        xgb_model.load_model(os.path.join(base, 'model_pkl', 'xgb_submodel.json'))
     except Exception as e:
-        xgb_model = None
-        print(f"[models/loader] WARNING: XGBoost not loaded: {e}")
+        try:
+            xgb_model = joblib.load(pkl('xgboost_tuned.pkl'))
+        except Exception as e2:
+            xgb_model = None
+            print(f"[models/loader] WARNING: XGBoost not loaded: {e2}")
 
     try:
         ensemble_model = joblib.load(os.path.join(base, 'model_pkl', 'ensemble_model.pkl'))
@@ -76,8 +73,32 @@ def load_models():
         except Exception as json_e:
             print(f"[models/loader] WARNING: Failed to inject JSON XGBoost into Ensemble: {json_e}")
     except Exception as e:
-        ensemble_model = None
-        print(f"[models/loader] WARNING: Ensemble Model not loaded: {e}")
+        try:
+            import torch
+            import xgboost as xgb
+            from models.model_architecture import TCN, EnsembleModel
+
+            json_xgb = xgb.XGBRegressor()
+            json_xgb.load_model(os.path.join(base, 'model_pkl', 'xgb_submodel.json'))
+
+            tcn_model = TCN(input_dim=6, num_channels=64, kernel_size=3, dilations=[1, 2, 4, 8, 16])
+            tcn_path = os.path.join(base, 'model_pkl', 'tcn_submodel.pth')
+            if not os.path.exists(tcn_path):
+                tcn_path = os.path.join(base, 'model_pkl', 'best_tcn_model.pth')
+            tcn_model.load_state_dict(torch.load(tcn_path, map_location='cpu'))
+            tcn_model.eval()
+
+            ensemble_model = EnsembleModel(
+                xgb_model=json_xgb,
+                tcn_model=tcn_model,
+                preprocessors=preprocessors,
+                seq_len=30,
+                tcn_weight=0.39
+            )
+            print("[models/loader] Ensemble Model reconstructed successfully from submodels!")
+        except Exception as fallback_e:
+            ensemble_model = None
+            print(f"[models/loader] WARNING: Ensemble Model not loaded: {e} | Fallback failed: {fallback_e}")
 
     try:
         svr_model = joblib.load(pkl('svr_model.pkl'))
