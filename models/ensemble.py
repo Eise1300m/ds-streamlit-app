@@ -72,7 +72,7 @@ def predict_sandbox(ensemble_model, X_test_raw,
     xgb_pred = ensemble_model.xgb_model.predict(latest_raw)[0]
 
     # --- B. TCN Sub-model Prediction ---
-    from model_architecture import preprocess_for_tcn
+    from models.model_architecture import preprocess_for_tcn
     import torch
     import numpy as np
     

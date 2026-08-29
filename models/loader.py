@@ -27,7 +27,7 @@ def register_custom_classes():
     deserialise the ensemble_model.pkl without ImportError.
     """
     import __main__
-    import model_architecture
+    import models.model_architecture as model_architecture
 
     __main__.EnsembleModel      = model_architecture.EnsembleModel
     __main__.TCN                = model_architecture.TCN
