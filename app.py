@@ -322,50 +322,47 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
         
         perm_model = st.selectbox(
             "Select Model for Permutation Analysis:", 
-            ["Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
+            ["Ridge Regression", "XGBoost", "Ensemble Model: XGBoost + TCN", "Support Vector Regression (SVR)", "Multilayer Perceptron (MLP)", "LSTM"],
             key="perm_model_select"
         )
         
         # Pre-calculated/Representative permutation importance for each model
         if perm_model == "Support Vector Regression (SVR)":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-            # Values from SVR Permutation Importance evaluation
-            # Log_Price_Lag1: 0.000051, Yeo_Volume_Lag1: -0.000238, Exact_Return_Lag1: 0.000139, Yeo_Vol_7d: 0.000008, Yeo_Vol_30d: 0.000020, Is_Anomaly: 0.000187
             perm_importance = [0.000051, -0.000238, 0.000139, 0.000008, 0.000020, 0.000187]
-            perm_sd = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
             color = '#17BECF'
         elif perm_model == "Ensemble Model: XGBoost + TCN":
             perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
-            perm_importance = [0.006029,0.018748,0.012038,-0.003004,0.020273,0.001868]
-            perm_sd = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            color = 'purple'
+            perm_importance = [0.006029, 0.018748, 0.012038, -0.003004, 0.020273, 0.001868]
+            color = '#9467BD'
         elif perm_model == "Multilayer Perceptron (MLP)":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-            # Values from user screenshot: [Price: 0.0104, Vol: 0.0085, Ret: 0.0032, Vol7: 0.0051, Vol30: 0.0086, Anomaly: 0.0087]
             perm_importance = [0.0104, 0.0085, 0.0032, 0.0051, 0.0086, 0.0087]
-            perm_sd = [0.0014, 0.0039, 0.0032, 0.0041, 0.0020, 0.0033]
             color = '#8C564B'
         elif perm_model == "LSTM":
             perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
-            # Values from user screenshot: [Price: -0.0013, Vol: -0.0065, Ret: -0.0008, Vol7: -0.0028, Vol30: -0.0029, Anomaly: 0.0005]
             perm_importance = [-0.0013, -0.0065, -0.0008, -0.0028, -0.0029, 0.0005]
-            perm_sd = [0.0007, 0.0018, 0.0015, 0.0019, 0.0019, 0.0008]
             color = '#BCBD22'
+        elif perm_model == "XGBoost":
+            perm_feats = ['Price_Lag1', 'Volume_Lag1', 'Exact_Return_Lag1', 'Vol_7d', 'Vol_30d', 'Is_Anomaly']
+            perm_importance = [0.000000, 0.000099, -0.000093, 0.000517, 0.000418, 0.000000]
+            color = '#FF7F0E'
+        elif perm_model == "Ridge Regression":
+            perm_feats = ['Log_Price_Lag1', 'Yeo_Volume_Lag1', 'Exact_Return_Lag1', 'Yeo_Vol_7d', 'Yeo_Vol_30d', 'Is_Anomaly']
+            perm_importance = [0.000033, -0.000994, -0.000319, 0.000020, -0.000062, -0.000555]
+            color = '#2CA02C'
         
-        # Sort permutation importance ascending (mean, feature, sd)
-        sorted_perm = sorted(zip(perm_importance, perm_feats, perm_sd), key=lambda x: x[0])
+        # Sort permutation importance ascending
+        sorted_perm = sorted(zip(perm_importance, perm_feats), key=lambda x: x[0])
         perm_importance = [x[0] for x in sorted_perm]
         perm_feats = [x[1] for x in sorted_perm]
-        perm_sd = [x[2] for x in sorted_perm]
         
         fig_perm = go.Figure(go.Bar(
             x=perm_importance,
             y=perm_feats,
             orientation='h',
             marker_color=color,
-            error_x=dict(type='data', array=perm_sd, visible=True),
-            customdata=perm_sd,
-            hovertemplate="Feature: %{y}<br>Importance: %{x:.6f} ± %{customdata:.6f} (SD)<extra></extra>"
+            hovertemplate="Feature: %{y}<br>Importance: %{x:.6f}<extra></extra>"
         ))
         fig_perm.update_layout(
             title=f"{perm_model} Permutation Importance", 
@@ -738,8 +735,18 @@ with tab2:
         sandbox_return = st.number_input("Yesterday's Exact Return (%):",  value=0.02,    step=0.1)
         sandbox_volume = st.number_input("Yesterday's Volume:",            value=51877,   step=500)
     with col2:
-        sandbox_vol7d  = st.number_input("7-Day Vol Ratio (Vol_7d):",      value=0.85,  step=0.01)
-        sandbox_vol30d = st.number_input("30-Day Vol Ratio (Vol_30d):",    value=0.99,  step=0.01)
+        sandbox_vol7d  = st.number_input(
+            "7-Day Vol Ratio (Vol_7d):",      
+            value=0.85,  
+            step=0.01,
+            help="**Calculation (7-Day Volatility):**\n\n$$Vol_{7} = \sqrt{\\frac{1}{7-1} \sum_{i=1}^{7} (R_i - \\bar{R})^2}$$"
+        )
+        sandbox_vol30d = st.number_input(
+            "30-Day Vol Ratio (Vol_30d):",    
+            value=0.99,  
+            step=0.01,
+            help="**Calculation (30-Day Volatility):**\n\n$$Vol_{30} = \sqrt{\\frac{1}{30-1} \sum_{i=1}^{30} (R_i - \\bar{R})^2}$$"
+        )
         sandbox_anomaly = st.checkbox(
             "Volume Anomaly (Is_Anomaly)?",      
             value=False,
