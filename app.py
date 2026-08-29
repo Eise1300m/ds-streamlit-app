@@ -748,9 +748,10 @@ with tab2:
         sandbox_anomaly_int = 1 if sandbox_anomaly else 0
 
     st.markdown("---")
+    st.markdown("---")
     c_mod, c_btn = st.columns([3, 1])
     with c_mod:
-        selected_model_tab3 = st.selectbox("Select Model:", models_list, key="tab3_model")
+        selected_models_tab3 = st.multiselect("Select Model(s):", models_list, default=["Ridge Regression"], key="tab3_models")
     with c_btn:
         st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
         run_pred = st.button("▶ Run Prediction", type="primary", use_container_width=True)
@@ -760,102 +761,92 @@ with tab2:
 
     # Run inference only when the button is clicked
     if run_pred:
-        if selected_model_tab3 == "Ridge Regression":
-            pred_return, pred_price = ridge_sandbox(
-                ridge_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "Ridge Regression",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-            }
-
-        elif selected_model_tab3 == "XGBoost" and xgb_model is not None:
-            pred_return, pred_price = xgb_sandbox(
-                xgb_model, X_test_raw,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "XGBoost",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-            }
-
-        elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
-            pred_return, pred_price = ensemble_sandbox(
-                ensemble_model, X_test_raw,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "Ensemble Model: XGBoost + TCN",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return)
-            }
-
-        elif selected_model_tab3 == "Support Vector Regression (SVR)" and svr_model is not None:
-            pred_return, pred_price = svr_sandbox(
-                svr_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "Support Vector Regression (SVR)",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-            }
-
-        elif selected_model_tab3 == "Multilayer Perceptron (MLP)" and mlp_model is not None:
-            pred_return, pred_price = mlp_sandbox(
-                mlp_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "Multilayer Perceptron (MLP)",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-            }
-
-        elif selected_model_tab3 == "LSTM" and lstm_model is not None:
-            pred_return, pred_price = lstm_sandbox(
-                lstm_model, X_test_scaled, preprocessors,
-                sandbox_price, sandbox_volume, sandbox_return,
-                sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
-            )
-            st.session_state["pred_result"] = {
-                "model": "LSTM",
-                "ret": pred_return,
-                "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-            }
-
+        if not selected_models_tab3:
+            st.warning("Please select at least one model.")
         else:
-            st.session_state["pred_result"] = None
-            st.warning(f"Live prediction for **'{selected_model_tab3}'** is not available. The model may not have loaded correctly.")
+            results = []
+            for sm in selected_models_tab3:
+                pred_return, pred_price = None, None
+                
+                if sm == "Ridge Regression":
+                    pred_return, pred_price = ridge_sandbox(
+                        ridge_model, X_test_scaled, preprocessors,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                elif sm == "XGBoost" and xgb_model is not None:
+                    pred_return, pred_price = xgb_sandbox(
+                        xgb_model, X_test_raw,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                elif sm == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
+                    pred_return, pred_price = ensemble_sandbox(
+                        ensemble_model, X_test_raw,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                elif sm == "Support Vector Regression (SVR)" and svr_model is not None:
+                    pred_return, pred_price = svr_sandbox(
+                        svr_model, X_test_scaled, preprocessors,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                elif sm == "Multilayer Perceptron (MLP)" and mlp_model is not None:
+                    pred_return, pred_price = mlp_sandbox(
+                        mlp_model, X_test_scaled, preprocessors,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                elif sm == "LSTM" and lstm_model is not None:
+                    pred_return, pred_price = lstm_sandbox(
+                        lstm_model, X_test_scaled, preprocessors,
+                        sandbox_price, sandbox_volume, sandbox_return,
+                        sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
+                    )
+                
+                if pred_return is not None:
+                    results.append({
+                        "model": sm,
+                        "ret": pred_return,
+                        "price": pred_price,
+                        "inputs": (sandbox_price, sandbox_volume, sandbox_return),
+                    })
+                else:
+                    st.warning(f"Live prediction for **'{sm}'** is not available. The model may not have loaded correctly.")
+            
+            st.session_state["pred_results"] = results
 
     # Display the last stored result (persists across re-runs until new button press)
-    if "pred_result" in st.session_state and st.session_state["pred_result"] is not None:
-        res = st.session_state["pred_result"]
-        inp_price, inp_vol, inp_ret = res["inputs"]
-
-        # Input summary
-        st.caption(f"Inputs used — Price: ₹{inp_price:,.0f} | Volume: {inp_vol:,} | Return: {inp_ret:+.2f}%")
-
-        direction = "Upward" if res["ret"] > 0 else "Downward"
-        r_col1, r_col2, r_col3 = st.columns(3)
-        r_col1.metric("Model Used",          res["model"])
-        r_col2.metric("Predicted Change",    f"{res['ret']:+.4f}%",    direction, delta_color="off")
-        r_col3.metric("Predicted Next Price", f"₹{res['price']:,.2f}", delta_color="off")
+    if "pred_results" in st.session_state and st.session_state["pred_results"]:
+        results = st.session_state["pred_results"]
         
+        # All inputs are the same, so grab from the first result
+        inp_price, inp_vol, inp_ret = results[0]["inputs"]
+        st.caption(f"Inputs used — Price: ₹{inp_price:,.0f} | Volume: {inp_vol:,} | Return: {inp_ret:+.2f}%")
+        
+        for res in results:
+            st.markdown("---")
+            st.markdown(f"#### Model: {res['model']}")
+            r_col1, r_col2 = st.columns(2)
+            
+            # Using negative sign for downward trend to ensure native Streamlit down arrow
+            direction = "Upward" if res["ret"] > 0 else "- Downward"
+            
+            with r_col1:
+                st.metric(
+                    label="Predicted Next Price", 
+                    value=f"₹{res['price']:,.2f}",
+                    delta=f"{res['price'] - inp_price:,.2f} change",
+                    delta_color="normal"
+                )
+            with r_col2:
+                st.metric(
+                    label="Predicted Change",    
+                    value=f"{res['ret']:+.4f}%",    
+                    delta=direction, 
+                    delta_color="normal"
+                )
 
-    elif "pred_result" not in st.session_state:
-        st.info("Select a model, enter yesterday's data, and click **Run Prediction** to get started.")
+    elif "pred_results" not in st.session_state:
+        st.info("Select model(s), enter yesterday's data, and click **Run Prediction** to get started.")
