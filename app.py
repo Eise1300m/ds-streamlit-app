@@ -536,11 +536,11 @@ with tab1:
                                 delta_color="off"
                             )
                         with mcol3:
-                            pred_trend = "UP 📈" if pred_ret > 0 else "DOWN 📉"
-                            actual_trend = "UP 📈" if actual_ret > 0 else "DOWN 📉"
+                            pred_trend = "UP" if pred_ret > 0 else "DOWN"
+                            actual_trend = "UP" if actual_ret > 0 else "DOWN"
                             
                             is_correct = (pred_ret > 0 and actual_ret > 0) or (pred_ret < 0 and actual_ret < 0)
-                            match_text = "✅ Correct Trend" if is_correct else "❌ Wrong Trend"
+                            match_text = "Correct Trend" if is_correct else "Wrong Trend"
                             
                             st.metric(
                                 label=f"Predicted Trend (Actual was {actual_trend})",
