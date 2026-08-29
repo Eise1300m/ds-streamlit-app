@@ -473,16 +473,18 @@ with tab1:
         if sm not in active_models:
             st.info(f"Model '{sm}' is under Future Development. Results shown below only include active models.")
 
-    # --- Color picker toolbar (always rendered at fixed location to prevent re-run loop) ---
-    color_lines = ["Actual Price"] + [m for m in selected_models_tab2 if m in active_models]
-    _toolbar_cols = st.columns(len(color_lines) + 1)
-    _toolbar_cols[0].markdown("**Chart Colors:**")
+    # --- Color picker toolbar ---
     chart_colors = {k: default_colors[k] for k in default_colors}
-    for _ci, _cl in enumerate(color_lines):
-        _lbl = _cl if len(_cl) <= 12 else _cl[:12] + "…"
-        chart_colors[_cl] = _toolbar_cols[_ci + 1].color_picker(
-            _lbl, default_colors.get(_cl, "#333333"), key=f"chartcolor_{_cl}"
-        )
+    
+    if not is_single_date:
+        color_lines = ["Actual Price"] + [m for m in selected_models_tab2 if m in active_models]
+        _toolbar_cols = st.columns(len(color_lines) + 1)
+        _toolbar_cols[0].markdown("**Chart Colors:**")
+        for _ci, _cl in enumerate(color_lines):
+            _lbl = _cl if len(_cl) <= 12 else _cl[:12] + "…"
+            chart_colors[_cl] = _toolbar_cols[_ci + 1].color_picker(
+                _lbl, default_colors.get(_cl, "#333333"), key=f"chartcolor_{_cl}"
+            )
 
     # DYNAMIC LOGIC
     if any(m in selected_models_tab2 for m in active_models):
@@ -495,7 +497,8 @@ with tab1:
                 actual_price = row_data['Actual_Price']
                 actual_ret = row_data['Actual_Return_%']
                 
-                st.markdown(f"### Predictions for {start_date} (Actual Price: ₹{actual_price:,.2f})")
+                st.markdown(f"### Predictions for {start_date}")
+                st.markdown(f"**Actual Market Close Price:** ₹{actual_price:,.2f} &nbsp;&nbsp;|&nbsp;&nbsp; **Actual Return:** {actual_ret:+.4f}%")
                 
                 col_mapping = {
                     "Ridge Regression": ("Ridge_Pred_Price", "Ridge_Pred_Return_%"),
@@ -514,8 +517,9 @@ with tab1:
                         pred_price = row_data[price_col]
                         pred_ret = row_data[ret_col]
                         
-                        st.markdown(f"**Model: {m}**")
-                        mcol1, mcol2 = st.columns(2)
+                        st.markdown("---")
+                        st.markdown(f"#### 🤖 Model: {m}")
+                        mcol1, mcol2, mcol3 = st.columns(3)
                         
                         with mcol1:
                             st.metric(
@@ -530,6 +534,19 @@ with tab1:
                                 value=f"{pred_ret:+.4f}%",
                                 delta=f"{pred_ret - actual_ret:+.4f}% (Error)",
                                 delta_color="off"
+                            )
+                        with mcol3:
+                            pred_trend = "UP 📈" if pred_ret > 0 else "DOWN 📉"
+                            actual_trend = "UP 📈" if actual_ret > 0 else "DOWN 📉"
+                            
+                            is_correct = (pred_ret > 0 and actual_ret > 0) or (pred_ret < 0 and actual_ret < 0)
+                            match_text = "✅ Correct Trend" if is_correct else "❌ Wrong Trend"
+                            
+                            st.metric(
+                                label=f"Predicted Trend (Actual was {actual_trend})",
+                                value=pred_trend,
+                                delta=match_text,
+                                delta_color="normal" if is_correct else "inverse"
                             )
         else:
             # Date Range (> 1 day)
