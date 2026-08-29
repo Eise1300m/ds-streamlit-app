@@ -46,22 +46,38 @@ def load_models():
     """
     register_custom_classes()
     base = _base_dir()
-    pkl  = lambda name: os.path.join(base, 'Model_PKL', name)
+    pkl  = lambda name: os.path.join(base, 'model_pkl', name)
 
     ridge_model   = joblib.load(pkl('ridge_model.pkl'))
     preprocessors = joblib.load(pkl('preprocessors.pkl'))
 
     try:
         xgb_model = joblib.load(pkl('xgboost_tuned.pkl'))
+        # Overwrite with JSON model to prevent architecture corruption
+        try:
+            import xgboost as xgb
+            json_xgb_standalone = xgb.XGBRegressor()
+            json_xgb_standalone.load_model(os.path.join(base, 'model_pkl', 'xgb_submodel.json'))
+            xgb_model = json_xgb_standalone
+        except Exception as json_e:
+            pass
     except Exception as e:
         xgb_model = None
         print(f"[models/loader] WARNING: XGBoost not loaded: {e}")
 
     try:
-        ensemble_model = joblib.load(pkl('ensemble_model.pkl'))
+        ensemble_model = joblib.load(os.path.join(base, 'model_pkl', 'ensemble_model.pkl'))
+        # Overwrite the pickled XGBoost model with the cross-platform JSON model
+        try:
+            import xgboost as xgb
+            json_xgb = xgb.XGBRegressor()
+            json_xgb.load_model(os.path.join(base, 'model_pkl', 'xgb_submodel.json'))
+            ensemble_model.xgb_model = json_xgb
+        except Exception as json_e:
+            print(f"[models/loader] WARNING: Failed to inject JSON XGBoost into Ensemble: {json_e}")
     except Exception as e:
         ensemble_model = None
-        print(f"[models/loader] WARNING: Ensemble not loaded: {e}")
+        print(f"[models/loader] WARNING: Ensemble Model not loaded: {e}")
 
     try:
         svr_model = joblib.load(pkl('svr_model.pkl'))
@@ -72,7 +88,7 @@ def load_models():
     try:
         os.environ['KERAS_BACKEND'] = 'torch' # Force PyTorch backend to avoid TensorFlow dependency
         import keras
-        lstm_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'LSTM_final_model.keras'))
+        lstm_model = keras.models.load_model(os.path.join(base, 'model_pkl', 'LSTM_final_model.keras'))
     except Exception as e:
         lstm_model = None
         print(f"[models/loader] WARNING: LSTM not loaded: {e}")
@@ -80,7 +96,7 @@ def load_models():
     try:
         os.environ['KERAS_BACKEND'] = 'torch'
         import keras
-        mlp_model = keras.models.load_model(os.path.join(base, 'Model_PKL', 'MLP_final_model.keras'))
+        mlp_model = keras.models.load_model(os.path.join(base, 'model_pkl', 'MLP_final_model.keras'))
     except Exception as e:
         mlp_model = None
         print(f"[models/loader] WARNING: MLP not loaded: {e}")

@@ -69,13 +69,6 @@ def predict_sandbox(ensemble_model, X_test_raw,
     # --- A. XGBoost Sub-model Prediction ---
     latest_raw = window[-1].reshape(1, -1)
     
-    # DEBUG EXPORT
-    debug_info = {
-        "Raw Window Shape": window.shape,
-        "Latest Raw Row": latest_raw.tolist(),
-        "First Row of 30-day History": window[0].tolist()
-    }
-    
     xgb_pred = ensemble_model.xgb_model.predict(latest_raw)[0]
 
     # --- B. TCN Sub-model Prediction ---
@@ -88,15 +81,9 @@ def predict_sandbox(ensemble_model, X_test_raw,
     ])
     tcn_input = torch.tensor(scaled_window, dtype=torch.float32).unsqueeze(0).to(ensemble_model.device)
     
-    debug_info["Scaled TCN Tensor Shape"] = list(tcn_input.shape)
-    debug_info["Scaled TCN First Row"] = tcn_input[0][0].tolist()
-    
     ensemble_model.tcn_model.eval()
     with torch.no_grad():
         tcn_pred = ensemble_model.tcn_model(tcn_input).item()
-
-    debug_info["XGBoost Sub-Prediction"] = xgb_pred
-    debug_info["TCN Sub-Prediction"] = tcn_pred
 
     # --- C. Weighted Ensemble Combination ---
     tcn_weight = ensemble_model.tcn_weight
@@ -105,4 +92,4 @@ def predict_sandbox(ensemble_model, X_test_raw,
     # --- D. Price Reconstruction ---
     pred_price = sandbox_price * (1 + pred_return / 100)
     
-    return pred_return, pred_price, debug_info
+    return pred_return, pred_price

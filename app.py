@@ -729,7 +729,7 @@ with tab2:
             }
 
         elif selected_model_tab3 == "Ensemble Model: XGBoost + TCN" and ensemble_model is not None:
-            pred_return, pred_price, debug_info = ensemble_sandbox(
+            pred_return, pred_price = ensemble_sandbox(
                 ensemble_model, X_test_raw,
                 sandbox_price, sandbox_volume, sandbox_return,
                 sandbox_vol7d, sandbox_vol30d, sandbox_anomaly_int
@@ -738,8 +738,7 @@ with tab2:
                 "model": "Ensemble Model: XGBoost + TCN",
                 "ret": pred_return,
                 "price": pred_price,
-                "inputs": (sandbox_price, sandbox_volume, sandbox_return),
-                "debug": debug_info
+                "inputs": (sandbox_price, sandbox_volume, sandbox_return)
             }
 
         elif selected_model_tab3 == "Support Vector Regression (SVR)" and svr_model is not None:
@@ -799,11 +798,6 @@ with tab2:
         r_col2.metric("Predicted Change",    f"{res['ret']:+.4f}%",    direction, delta_color="off")
         r_col3.metric("Predicted Next Price", f"₹{res['price']:,.2f}", delta_color="off")
         
-        # Display the debug payload for Ensemble Model
-        if "debug" in res and res["debug"] is not None:
-            st.divider()
-            st.markdown("### --- DEBUGGING ARRAYS ---")
-            st.json(res["debug"])
 
     elif "pred_result" not in st.session_state:
         st.info("Select a model, enter yesterday's data, and click **Run Prediction** to get started.")
