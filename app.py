@@ -492,29 +492,45 @@ with tab1:
                 st.warning("Selected date is a weekend or holiday with no trading data.")
             else:
                 row_data = df_test[date_mask].iloc[0]
-                
                 actual_price = row_data['Actual_Price']
-                pred_price = row_data['Ridge_Pred_Price']
                 actual_ret = row_data['Actual_Return_%']
-                pred_ret = row_data['Ridge_Pred_Return_%']
                 
-                st.markdown(f"### Predictions for {start_date}")
-                mcol1, mcol2 = st.columns(2)
+                st.markdown(f"### Predictions for {start_date} (Actual Price: ₹{actual_price:,.2f})")
                 
-                with mcol1:
-                    st.metric(
-                        label="Next-Day Price (Actual vs Predicted)",
-                        value=f"₹{pred_price:,.2f}",
-                        delta=f"{pred_price - actual_price:,.2f} (Error)",
-                        delta_color="off"
-                    )
-                with mcol2:
-                    st.metric(
-                        label="Exact Change % (Actual vs Predicted)",
-                        value=f"{pred_ret:+.4f}%",
-                        delta=f"{pred_ret - actual_ret:+.4f}% (Error)",
-                        delta_color="off"
-                    )
+                col_mapping = {
+                    "Ridge Regression": ("Ridge_Pred_Price", "Ridge_Pred_Return_%"),
+                    "XGBoost": ("XGBoost_Pred_Price", "XGBoost_Pred_Return_%"),
+                    "Ensemble Model: XGBoost + TCN": ("Ensemble Model: XGBoost + TCN_Pred_Price", "Ensemble Model: XGBoost + TCN_Pred_Return_%"),
+                    "Support Vector Regression (SVR)": ("Support Vector Regression (SVR)_Pred_Price", "Support Vector Regression (SVR)_Pred_Return_%"),
+                    "Multilayer Perceptron (MLP)": ("Multilayer Perceptron (MLP)_Pred_Price", "Multilayer Perceptron (MLP)_Pred_Return_%"),
+                    "LSTM": ("LSTM_Pred_Price", "LSTM_Pred_Return_%")
+                }
+                
+                selected_active_models = [m for m in selected_models_tab2 if m in active_models]
+                
+                for m in selected_active_models:
+                    price_col, ret_col = col_mapping.get(m, (None, None))
+                    if price_col and price_col in row_data.index and pd.notna(row_data[price_col]):
+                        pred_price = row_data[price_col]
+                        pred_ret = row_data[ret_col]
+                        
+                        st.markdown(f"**Model: {m}**")
+                        mcol1, mcol2 = st.columns(2)
+                        
+                        with mcol1:
+                            st.metric(
+                                label="Predicted Price",
+                                value=f"₹{pred_price:,.2f}",
+                                delta=f"{pred_price - actual_price:,.2f} (Error)",
+                                delta_color="off"
+                            )
+                        with mcol2:
+                            st.metric(
+                                label="Predicted Return %",
+                                value=f"{pred_ret:+.4f}%",
+                                delta=f"{pred_ret - actual_ret:+.4f}% (Error)",
+                                delta_color="off"
+                            )
         else:
             # Date Range (> 1 day)
             if not df_range.empty:
