@@ -367,12 +367,37 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             marker_color=color,
             hovertemplate="Feature: %{y}<br>Importance: %{x:.6f}<extra></extra>"
         ))
+        
+        # Add permanent callout message boxes matching Plotly's exact tooltip design
+        annotations = []
+        for feat, val in zip(perm_feats, perm_importance):
+            if val == 0:
+                annotations.append(dict(
+                    x=0,
+                    y=feat,
+                    text=f"Feature: {feat}<br>Importance: 0.000000",
+                    showarrow=True,
+                    arrowhead=6,
+                    arrowsize=1.2,
+                    arrowwidth=1,
+                    arrowcolor="#D3D3D3",
+                    ax=70,
+                    ay=0,
+                    align="left",
+                    bgcolor="#FFFFFF",
+                    bordercolor="#D3D3D3",
+                    borderwidth=1,
+                    borderpad=5,
+                    font=dict(size=12, family="sans-serif", color="#50586C")
+                ))
+
         fig_perm.update_layout(
             title=f"{perm_model} Permutation Importance", 
             xaxis_title="Increase in RMSE when shuffled", 
-            yaxis_title="Feature"
+            yaxis_title="Feature",
+            annotations=annotations
         )
-        fig_perm.update_xaxes(tickformat=".6f")
+        fig_perm.update_xaxes(tickformat=".6f", zeroline=True, zerolinewidth=2, zerolinecolor='black')
         st.plotly_chart(fig_perm, use_container_width=True)
 
 # ── SECTION 2: INTERACTIVE ANALYSIS TOOLS ────────────────────────────────────
