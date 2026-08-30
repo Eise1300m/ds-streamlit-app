@@ -543,7 +543,7 @@ with tab1:
                         pred_ret = row_data[ret_col]
                         
                         st.markdown("---")
-                        st.markdown(f"#### 🤖 Model: {m}")
+                        st.markdown(f"#### Model: {m}")
                         mcol1, mcol2, mcol3 = st.columns(3)
                         
                         with mcol1:
