@@ -22,10 +22,10 @@ def predict_sandbox(mlp_model, X_test_scaled, preprocessors,
 
     log_price     = np.log(sandbox_price)
     price_scaled  = (log_price - preprocessors['price_mean']) / preprocessors['price_std']
-    vol_scaled    = preprocessors['pt_vol'].transform([[sandbox_volume]])[0, 0]
-    ret_scaled    = preprocessors['scaler_return'].transform([[sandbox_return]])[0, 0]
-    vol7d_scaled  = preprocessors['pt_vol7'].transform([[sandbox_vol7d]])[0, 0]
-    vol30d_scaled = preprocessors['pt_vol30'].transform([[sandbox_vol30d]])[0, 0]
+    vol_scaled    = preprocessors['pt_vol'].transform(pd.DataFrame({'Volume_Lag1': [sandbox_volume]}))[0, 0]
+    ret_scaled    = preprocessors['scaler_return'].transform(pd.DataFrame({'Exact_Return_Lag1': [sandbox_return]}))[0, 0]
+    vol7d_scaled  = preprocessors['pt_vol7'].transform(pd.DataFrame({'Vol_7d': [sandbox_vol7d]}))[0, 0]
+    vol30d_scaled = preprocessors['pt_vol30'].transform(pd.DataFrame({'Vol_30d': [sandbox_vol30d]}))[0, 0]
 
     last_scaled_row['Log_Price_Lag1']    = price_scaled
     last_scaled_row['Yeo_Volume_Lag1']   = vol_scaled

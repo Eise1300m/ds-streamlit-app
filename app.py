@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning)
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -739,7 +742,7 @@ with tab2:
             "7-Day Vol Ratio (Vol_7d):",      
             value=0.85,  
             step=0.01,
-            help="**Calculation (7-Day Volatility):**\n\n$$Vol_{7} = \sqrt{\\frac{1}{7-1} \sum_{i=1}^{7} (R_i - \\bar{R})^2}$$"
+            help=r"**Calculation (7-Day Volatility):**" + "\n\n" + r"$$Vol_{7} = \sqrt{\frac{1}{7-1} \sum_{i=1}^{7} (R_i - \bar{R})^2}$$"
         )
         sandbox_vol30d = st.number_input(
             "30-Day Vol Ratio (Vol_30d):",    
