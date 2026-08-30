@@ -218,8 +218,8 @@ with st.expander("Click to View More About Model: Feature Importance Visualizati
             corr_df = X_train_scaled.copy()
             title_text = "Toolbox B Correlation Heatmap"
             
-        # Add a multiselect for filtering variables
-        corr_df['Target_Return'] = y_train_df['Exact_Return'].values
+        # Add the target variable to check correlations with what we want to predict
+        corr_df["Target (Tomorrow's Return)"] = y_train_df['Exact_Return'].values
         
         all_vars = list(corr_df.columns)
         selected_vars = st.multiselect(
